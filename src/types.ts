@@ -35,6 +35,11 @@ export const extractorModeValues = ['auto', 'native', 'ytdlp'] as const;
 // One allowed extractor mode token.
 export type ExtractorMode = typeof extractorModeValues[number];
 
+// Saved Instagram media: the original mp4 or an mp3 audio track.
+export const mediaFormatValues = ['mp4', 'mp3'] as const;
+// One allowed media format token.
+export type MediaFormat = typeof mediaFormatValues[number];
+
 // ============================================================================
 // CLI / orchestration
 // ============================================================================
@@ -87,6 +92,10 @@ export type CliOptions = {
   extractorMode: ExtractorMode;
   // When true, download the video mp4 instead of captions (single video only).
   downloadVideo: boolean;
+  // Instagram media file to keep next to the transcript.
+  mediaFormat: MediaFormat;
+  // whisper.cpp model name for Instagram speech-to-text, such as `large-v3-turbo-q5_0`.
+  whisperModel: string;
 };
 
 // Public metadata used to decide whether a bulk video id should be scraped.
@@ -121,9 +130,9 @@ export type VideoFilterCriteria = {
 export type TranscriptBundle = {
   // Identifier for this video's transcript set.
   videoId: string;
-  // Human-readable title when YouTube metadata provides it.
+  // Human-readable title when the source metadata provides it.
   videoName: string | null;
-  // Canonical watch URL for this video.
+  // Canonical YouTube watch URL or Instagram post URL.
   videoUrl: string;
   // Language chosen for downloaded captions.
   languageTag: string;
@@ -133,7 +142,21 @@ export type TranscriptBundle = {
   localAgentTranscript: string;
 };
 
-// Paths written under scraped-yt/agents/<agent>/<model[_effort]>/<videoId>/.
+// One WebVTT transcript (yt-dlp subtitles or whisper.cpp speech-to-text) ready for export.
+export type VttTranscriptSource = {
+  // YouTube video id or Instagram shortcode; names the output files.
+  videoId: string;
+  // Human-readable title when the source provides it.
+  videoName: string | null;
+  // Canonical YouTube watch URL or Instagram post URL.
+  videoUrl: string;
+  // Transcript language code.
+  languageTag: string;
+  // WebVTT body with timed cues.
+  vttBody: string;
+};
+
+// Paths written under <output folder>/agents/<agent>/<model[_effort]>/<videoId>/.
 export type AgentArtifactPaths = {
   // Package root for this video's agent conversion.
   packageDirectory: string;

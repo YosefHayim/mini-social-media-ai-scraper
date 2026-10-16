@@ -1,26 +1,28 @@
 {
-  "name": "yt-captions-mini-ai",
+  "name": "mini-social-media-ai-scraper",
   "version": "0.0.4",
-  "description": "Blazing-fast YouTube-only captions CLI (ytcap) with bulk concurrency, disk cache, and optional local-agent SKILL.md scaffolding",
+  "description": "Small social media scraper CLI: YouTube captions (video, playlist, channel) and Instagram reels (mp4/mp3 + local whisper transcript), with optional local-agent SKILL.md scaffolding",
   "private": false,
   "type": "module",
   "license": "MIT",
   "author": "Yosef Hayim Sabag",
-  "homepage": "https://github.com/YosefHayim/yt-captions-mini-ai",
+  "homepage": "https://github.com/YosefHayim/mini-social-media-ai-scraper",
   "bugs": {
-    "url": "https://github.com/YosefHayim/yt-captions-mini-ai/issues"
+    "url": "https://github.com/YosefHayim/mini-social-media-ai-scraper/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/YosefHayim/yt-captions-mini-ai.git"
+    "url": "https://github.com/YosefHayim/mini-social-media-ai-scraper.git"
   },
   "keywords": [
     "youtube",
+    "instagram",
+    "reels",
+    "whisper",
     "captions",
     "transcript",
     "subtitles",
     "cli",
-    "ytcap",
     "innertube",
     "playlist",
     "channel",
@@ -29,8 +31,7 @@
   ],
   "main": "dist/main.js",
   "bin": {
-    "ytcap": "dist/main.js",
-    "yt-captions-mini-ai": "dist/main.js"
+    "mini-social-media-ai-scraper": "dist/main.js"
   },
   "exports": {
     ".": "./dist/main.js"

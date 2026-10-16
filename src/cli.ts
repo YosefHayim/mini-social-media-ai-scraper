@@ -22,8 +22,11 @@ import {
   ReasoningEffort,
   extractorModeValues,
   ExtractorMode,
+  mediaFormatValues,
+  MediaFormat,
 } from './types.js';
 import { listAgentModels, requireAgentModel } from './agentModels.js';
+import { isInstagramUrl } from './instagram.js';
 import { isIsoCalendarDay } from './filters/date-range.js';
 import { parseDurationSecondsToken } from './filters/duration.js';
 import { parseTitleTokenList } from './filters/title.js';
@@ -38,7 +41,10 @@ const {
 const {
   DEFAULT_FORMAT_TOKEN,
   DEFAULT_LANGUAGE_TOKEN,
-  DEFAULT_OUTPUT_FOLDER,
+  DEFAULT_YOUTUBE_OUTPUT_FOLDER,
+  DEFAULT_INSTAGRAM_OUTPUT_FOLDER,
+  DEFAULT_MEDIA_FORMAT,
+  DEFAULT_WHISPER_MODEL,
   DEFAULT_INTERACTIVE_OUTPUT,
   DEFAULT_PROMPT_CHOICE,
   OPTION_TOKEN_PREFIX,
@@ -61,6 +67,8 @@ const {
   OPTION_WITH_VALUE_CONCURRENCY,
   OPTION_WITH_VALUE_MAX_VIDEOS,
   OPTION_WITH_VALUE_EXTRACTOR,
+  OPTION_WITH_VALUE_MEDIA,
+  OPTION_WITH_VALUE_WHISPER_MODEL,
   DEFAULT_BULK_CONCURRENCY,
   DEFAULT_EXTRACTOR_MODE,
   MIN_BULK_CONCURRENCY,
@@ -93,6 +101,8 @@ const {
   PROMPT_ALLOW_AUTO,
   PROMPT_OUTPUT_FORMAT,
   PROMPT_OUTPUT_FOLDER,
+  PLACEHOLDER_OUTPUT_FOLDER,
+  PLACEHOLDER_COOKIES_PATH,
   PROMPT_STDOUT_ONLY,
   PROMPT_LOCAL_AGENT,
   PROMPT_AGENT_MODEL,
@@ -100,7 +110,7 @@ const {
   PROMPT_SYSTEM_PROMPT_MODE,
   PROMPT_CUSTOM_SYSTEM_PROMPT,
   PROMPT_COOKIES_PATH,
-  PROMPT_YOUTUBE_INPUT,
+  PROMPT_SOURCE_INPUT,
   LABEL_SKIP_LOCAL_AGENT,
   LABEL_KEEP_SOURCE_FORMAT,
   LABEL_OFFICIAL_SKILL_PROMPT,
@@ -111,6 +121,7 @@ const {
   HTTP_SCHEME_PREFIX,
   HTTPS_SCHEME_PREFIX,
 } = CONSTANTS.cli;
+const { MODEL_NAME_PATTERN, LOG_INVALID_MODEL } = CONSTANTS.whisperModel;
 // Channel examples: url=https://www.youtube.com/@handle  url=https://www.youtube.com/channel/UC…
 const DEFAULT_FORMAT_LIST: SubtitleFormat[] = [DEFAULT_FORMAT_TOKEN];
 const DEFAULT_LANGUAGE_LIST = [DEFAULT_LANGUAGE_TOKEN];
@@ -135,6 +146,8 @@ const VALUE_OPTION_KEYS = [
   OPTION_WITH_VALUE_CONCURRENCY,
   OPTION_WITH_VALUE_MAX_VIDEOS,
   OPTION_WITH_VALUE_EXTRACTOR,
+  OPTION_WITH_VALUE_MEDIA,
+  OPTION_WITH_VALUE_WHISPER_MODEL,
 ] as const;
 
 const defaultOptions: CliOptions = {
@@ -142,7 +155,7 @@ const defaultOptions: CliOptions = {
   languageTokens: DEFAULT_LANGUAGE_LIST,
   includeAutoCaptions: false,
   exportFormat: null,
-  outDirectory: DEFAULT_OUTPUT_FOLDER,
+  outDirectory: EMPTY_VALUE,
   writeToStdout: false,
   localAgent: null,
   agentModel: null,
@@ -161,6 +174,8 @@ const defaultOptions: CliOptions = {
   forceRefresh: false,
   extractorMode: DEFAULT_EXTRACTOR_MODE as ExtractorMode,
   downloadVideo: false,
+  mediaFormat: DEFAULT_MEDIA_FORMAT,
+  whisperModel: DEFAULT_WHISPER_MODEL,
 };
 
 const isSubtitleFormat = (formatToken: string): formatToken is SubtitleFormat => {
@@ -255,7 +270,11 @@ const looksLikeSourceUrl = (argumentToken: string): boolean => {
   if (!hasWebProtocol) {
     return false;
   }
-  return loweredToken.includes(YOUTUBE_HOST_MARK) || loweredToken.includes(SHORTS_HOST_MARK);
+  return (
+    loweredToken.includes(YOUTUBE_HOST_MARK)
+    || loweredToken.includes(SHORTS_HOST_MARK)
+    || isInstagramUrl(loweredToken)
+  );
 };
 
 const applyValueSetting = (optionKey: string, rawValue: string, parsedOptions: CliOptions): void => {
@@ -373,6 +392,22 @@ const applyValueSetting = (optionKey: string, rawValue: string, parsedOptions: C
       );
     }
     parsedOptions.extractorMode = extractorToken as ExtractorMode;
+    return;
+  }
+  if (optionKey === OPTION_WITH_VALUE_MEDIA) {
+    const mediaToken = rawValue.trim().toLowerCase();
+    if (!(mediaFormatValues as readonly string[]).includes(mediaToken)) {
+      throw new Error(`Invalid media "${rawValue}". Use one of: ${mediaFormatValues.join(', ')}`);
+    }
+    parsedOptions.mediaFormat = mediaToken as MediaFormat;
+    return;
+  }
+  if (optionKey === OPTION_WITH_VALUE_WHISPER_MODEL) {
+    const whisperModel = rawValue.trim();
+    if (!MODEL_NAME_PATTERN.test(whisperModel)) {
+      throw new Error(`${LOG_INVALID_MODEL} ${rawValue}`);
+    }
+    parsedOptions.whisperModel = whisperModel;
     return;
   }
 };
@@ -549,7 +584,8 @@ const parseInteractiveOptions = async (): Promise<CliOptions> => {
 
   const outputFolder = await promptForLine({
     message: PROMPT_OUTPUT_FOLDER,
-    defaultValue: DEFAULT_OUTPUT_FOLDER,
+    placeholder: PLACEHOLDER_OUTPUT_FOLDER,
+    defaultValue: EMPTY_VALUE,
   });
   if (isCancel(outputFolder)) {
     return abortInteractive();
@@ -599,6 +635,7 @@ const parseInteractiveOptions = async (): Promise<CliOptions> => {
 
   const cookiesPathInput = await promptForLine({
     message: PROMPT_COOKIES_PATH,
+    placeholder: PLACEHOLDER_COOKIES_PATH,
     defaultValue: EMPTY_VALUE,
   });
   if (isCancel(cookiesPathInput)) {
@@ -608,11 +645,6 @@ const parseInteractiveOptions = async (): Promise<CliOptions> => {
   let exportFormat: OutputFormat | null = null;
   if (isOutputFormat(chosenOutput)) {
     exportFormat = chosenOutput;
-  }
-
-  let outDirectory = DEFAULT_OUTPUT_FOLDER;
-  if (outputFolder !== EMPTY_VALUE) {
-    outDirectory = outputFolder;
   }
 
   const trimmedCookiesPath = cookiesPathInput.trim();
@@ -626,7 +658,7 @@ const parseInteractiveOptions = async (): Promise<CliOptions> => {
     languageTokens: parseLanguageList(languageInput),
     includeAutoCaptions: useAuto,
     exportFormat,
-    outDirectory,
+    outDirectory: outputFolder.trim(),
     writeToStdout,
     localAgent: selectedAgent,
     agentModel,
@@ -645,6 +677,8 @@ const parseInteractiveOptions = async (): Promise<CliOptions> => {
     forceRefresh: false,
     extractorMode: DEFAULT_EXTRACTOR_MODE as ExtractorMode,
     downloadVideo: false,
+    mediaFormat: DEFAULT_MEDIA_FORMAT,
+    whisperModel: DEFAULT_WHISPER_MODEL,
   };
   outro(OUTRO_MESSAGE);
   return interactiveOptions;
@@ -759,19 +793,34 @@ const collectArguments = (argumentTokens: string[]): { sourceUrl: string; option
   return { sourceUrl, options: parsedOptions };
 };
 
+const withDefaultOutDirectory = (
+  sourceUrl: string,
+  options: CliOptions,
+): { sourceUrl: string; options: CliOptions } => {
+  // Each platform gets its own default folder unless out-dir= is set.
+  if (options.outDirectory.length > 0) {
+    return { sourceUrl, options };
+  }
+  const outDirectory = isInstagramUrl(sourceUrl)
+    ? DEFAULT_INSTAGRAM_OUTPUT_FOLDER
+    : DEFAULT_YOUTUBE_OUTPUT_FOLDER;
+  return { sourceUrl, options: { ...options, outDirectory } };
+};
+
 export const parseCliArguments = async (
   argumentList: string[],
 ): Promise<{ sourceUrl: string; options: CliOptions }> => {
   // Fast CLI mode when args exist; interactive mode when none; strict validation with clear errors.
   if (argumentList.length === 0) {
     const options = await parseInteractiveOptions();
-    const videoInput = await promptForLine({
-      message: PROMPT_YOUTUBE_INPUT,
+    const sourceInput = await promptForLine({
+      message: PROMPT_SOURCE_INPUT,
     });
-    if (isCancel(videoInput) || videoInput.length === 0) {
+    if (isCancel(sourceInput) || sourceInput.length === 0) {
       return abortInteractive();
     }
-    return { sourceUrl: videoInput, options };
+    return withDefaultOutDirectory(sourceInput, options);
   }
-  return collectArguments(argumentList);
+  const parsedArguments = collectArguments(argumentList);
+  return withDefaultOutDirectory(parsedArguments.sourceUrl, parsedArguments.options);
 };

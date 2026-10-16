@@ -1,14 +1,12 @@
 import { Effect, Schema } from 'effect';
-import { spawnSync } from 'node:child_process';
-import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, rm } from 'node:fs/promises';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { fetchPlayerPayloadFromPlayerApi } from './player-api.js';
 import { fetchTextResourceOptional } from './http.js';
 import { extractEmbeddedJson } from './parsing.js';
+import { downloadMediaToFile } from './media-download.js';
+import { runFfmpeg } from './ffmpeg.js';
 import { logInfo, logWarn } from './log.js';
 
 import { CONSTANTS } from './constants.js';
@@ -17,12 +15,10 @@ const {
   BROWSER_USER_AGENT,
   YOUTUBE_ORIGIN_SLASH: DEFAULT_REFERRER_URL,
   YOUTUBE_INITIAL_PLAYER_RESPONSE_MARKER,
-  EMPTY_VALUE,
 } = CONSTANTS.shared;
+const { USER_AGENT_HEADER, REFERER_HEADER } = CONSTANTS.http;
 const {
   LOG_VIDEO_DOWNLOAD_START,
-  LOG_VIDEO_DOWNLOAD_DONE,
-  LOG_VIDEO_PROGRESS_TEMPLATE,
   LOG_VIDEO_SAVED_TEMPLATE,
   LOG_VIDEO_MUXING,
   LOG_VIDEO_MUX_TEMPLATE,
@@ -32,14 +28,9 @@ const {
 const {
   MIME_AUDIO_PREFIX,
   MIME_MP4_MARK,
-  PROGRESS_LOG_STEP_PERCENT,
-  FFMPEG_BINARY_NAME,
-  FFMPEG_TIMEOUT_MS,
   MEDIA_EXTENSION_MP4,
   MEDIA_EXTENSION_PART_VIDEO,
   MEDIA_EXTENSION_PART_AUDIO,
-  RANGE_HEADER_NAME,
-  MEDIA_PARALLEL_CHUNKS,
 } = CONSTANTS.video;
 
 // One media stream advertised by YouTube streamingData.
@@ -115,7 +106,7 @@ const parseContentLength = (contentLengthValue: number | string | undefined): nu
     return null;
   }
   const parsedLength = Number(contentLengthValue);
-  return Number.isFinite(parsedLength) && parsedLength >= 0 ? parsedLength : null;
+  return Number.isFinite(parsedLength) && parsedLength > 0 ? parsedLength : null;
 };
 
 const containerFromMimeType = (mimeType: string | null): string | null => {
@@ -245,19 +236,6 @@ const pickBestAdaptiveMp4Pair = (
   };
 };
 
-const formatBytes = (byteCount: number): string => {
-  if (byteCount >= 1024 * 1024 * 1024) {
-    return `${(byteCount / (1024 * 1024 * 1024)).toFixed(2)} GiB`;
-  }
-  if (byteCount >= 1024 * 1024) {
-    return `${(byteCount / (1024 * 1024)).toFixed(1)} MiB`;
-  }
-  if (byteCount >= 1024) {
-    return `${(byteCount / 1024).toFixed(1)} KiB`;
-  }
-  return `${byteCount} B`;
-};
-
 const formatStreamLabel = (streamingFormat: StreamingFormat): string => {
   const containerLabel = streamingFormat.container ?? 'unknown';
   const resolutionLabel = streamingFormat.height !== null ? `${streamingFormat.height}p ` : '';
@@ -266,206 +244,38 @@ const formatStreamLabel = (streamingFormat: StreamingFormat): string => {
   return `${itagLabel}${resolutionLabel}${containerLabel}${codecLabel}`;
 };
 
-const parseContentRangeTotal = (contentRangeHeader: string | null): number | null => {
-  if (!contentRangeHeader) {
-    return null;
-  }
-  const totalToken = contentRangeHeader.split('/')[1];
-  if (!totalToken) {
-    return null;
-  }
-  const totalBytes = Number(totalToken);
-  return Number.isFinite(totalBytes) && totalBytes > 0 ? totalBytes : null;
-};
-
-const appendBodyToFile = async (
-  mediaStream: import('node:stream/web').ReadableStream,
-  writeStream: import('node:stream').Writable,
-  onBytes: (chunk: Buffer) => Promise<void> | void,
-): Promise<void> => {
-  const nodeStream = Readable.fromWeb(mediaStream);
-  for await (const mediaChunk of nodeStream) {
-    const buffer = Buffer.isBuffer(mediaChunk) ? mediaChunk : Buffer.from(mediaChunk as Uint8Array);
-    await onBytes(buffer);
-    if (!writeStream.write(buffer)) {
-      await new Promise<void>((wakeUp) => writeStream.once('drain', wakeUp));
-    }
-  }
-};
-
-const probeTotalBytes = async (
-  downloadUrl: string,
-  mediaUserAgent: string,
-): Promise<number> => {
-  const probeReply = await fetch(downloadUrl, {
-    headers: {
-      'User-Agent': mediaUserAgent,
-      Referer: DEFAULT_REFERRER_URL,
-      Accept: '*/*',
-      [RANGE_HEADER_NAME]: 'bytes=0-0',
-    },
-  });
-  if (!probeReply.ok) {
-    throw new Error(`HTTP ${probeReply.status} while probing stream size`);
-  }
-  const totalBytes = parseContentRangeTotal(probeReply.headers.get('content-range'));
-  await probeReply.body?.cancel().catch(() => undefined);
-  if (totalBytes === null) {
-    throw new Error(`Stream size not exposed in Content-Range`);
-  }
-  return totalBytes;
-};
-
-const CHUNK_RETRY_ATTEMPTS = 3;
-
-const sleepBriefly = (delayMs: number): Promise<void> =>
-  new Promise((resolveSleep) => {
-    setTimeout(resolveSleep, delayMs);
-  });
-
-const downloadChunkToFile = async (
-  downloadUrl: string,
-  mediaUserAgent: string,
-  byteRange: string,
-  destFile: string,
-  progressState: { downloadedBytes: number; totalBytes: number; lastPercent: number },
-): Promise<void> => {
-  let lastChunkError: unknown = null;
-  for (let attempt = 0; attempt < CHUNK_RETRY_ATTEMPTS; attempt += 1) {
-    try {
-      const downloadReply = await fetch(downloadUrl, {
-        headers: {
-          'User-Agent': mediaUserAgent,
-          Referer: DEFAULT_REFERRER_URL,
-          Accept: '*/*',
-          [RANGE_HEADER_NAME]: byteRange,
-        },
-      });
-      if (!downloadReply.ok) {
-        throw new Error(`HTTP ${downloadReply.status} while downloading range ${byteRange}`);
-      }
-      if (!downloadReply.body) {
-        throw new Error(`Empty body while downloading range ${byteRange}`);
-      }
-      const writeStream = createWriteStream(destFile);
-      writeStream.setMaxListeners(0);
-      await appendBodyToFile(
-        downloadReply.body as import('node:stream/web').ReadableStream,
-        writeStream,
-        async (mediaChunk: Buffer) => {
-          progressState.downloadedBytes += mediaChunk.byteLength;
-          const progressPercent = Math.floor(
-            (progressState.downloadedBytes / progressState.totalBytes) * 100,
-          );
-          if (progressPercent >= progressState.lastPercent + PROGRESS_LOG_STEP_PERCENT) {
-            progressState.lastPercent = progressPercent;
-            logInfo(
-              `${LOG_VIDEO_PROGRESS_TEMPLATE}: ${progressPercent}% (${formatBytes(progressState.downloadedBytes)}/${formatBytes(progressState.totalBytes)})`,
-            );
-          }
-        },
-      );
-      writeStream.end();
-      await new Promise<void>((wakeUp, rejectWrite) => {
-        writeStream.once('finish', wakeUp);
-        writeStream.once('error', rejectWrite);
-      });
-      return;
-    } catch (chunkError) {
-      lastChunkError = chunkError;
-      await sleepBriefly(1000);
-    }
-  }
-  throw lastChunkError;
-};
-
 const downloadStreamToFile = async (
   streamingFormat: StreamingFormat,
   destFile: string,
   mediaUserAgent: string,
 ): Promise<void> => {
-  await mkdir(path.dirname(destFile), { recursive: true });
   const downloadUrl = streamingFormat.url;
   if (!downloadUrl) {
-    throw new Error(`No playable url for stream ${formatStreamLabel(streamingFormat)}`);
+    const streamLabel = formatStreamLabel(streamingFormat);
+    throw new Error(`No playable url for stream ${streamLabel}`);
   }
-
-  // Bounded ranges download full-speed while unbounded (`bytes=0-`) requests are
-  // throttled to ~1 Mbps; the cap is per-connection, so split the file into
-  // parallel chunks that each get their own connection.
-  const totalBytes =
-    streamingFormat.contentLength ?? (await probeTotalBytes(downloadUrl, mediaUserAgent));
-  const chunkCount = Math.min(MEDIA_PARALLEL_CHUNKS, totalBytes);
-  const chunkSize = Math.ceil(totalBytes / chunkCount);
-  const partFiles: string[] = [];
-  const chunkRanges: string[] = [];
-  for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
-    const rangeStart = chunkIndex * chunkSize;
-    if (rangeStart >= totalBytes) {
-      break;
-    }
-    const rangeEnd = Math.min(rangeStart + chunkSize, totalBytes) - 1;
-    partFiles.push(`${destFile}.part${chunkIndex}`);
-    chunkRanges.push(`bytes=${rangeStart}-${rangeEnd}`);
-  }
-
-  const progressState = {
-    downloadedBytes: 0,
-    totalBytes,
-    lastPercent: 0,
-  };
-  try {
-    await Promise.all(
-      chunkRanges.map((byteRange, chunkIndex) =>
-        downloadChunkToFile(
-          downloadUrl,
-          mediaUserAgent,
-          byteRange,
-          partFiles[chunkIndex],
-          progressState,
-        ),
-      ),
-    );
-
-    const writeStream = createWriteStream(destFile);
-    writeStream.setMaxListeners(0);
-    for (const partFile of partFiles) {
-      await pipeline(createReadStream(partFile), writeStream, { end: false });
-    }
-    writeStream.end();
-    await new Promise<void>((wakeUp, rejectWrite) => {
-      writeStream.once('finish', wakeUp);
-      writeStream.once('error', rejectWrite);
-    });
-  } finally {
-    await Promise.all(partFiles.map((partFile) => rm(partFile, { force: true })));
-  }
-
-  logInfo(
-    `${LOG_VIDEO_DOWNLOAD_DONE} ${formatBytes(progressState.downloadedBytes)} → ${path.basename(destFile)}`,
+  await downloadMediaToFile(
+    {
+      downloadUrl,
+      requestHeaders: {
+        [USER_AGENT_HEADER]: mediaUserAgent,
+        [REFERER_HEADER]: DEFAULT_REFERRER_URL,
+      },
+      totalBytes: streamingFormat.contentLength,
+    },
+    destFile,
   );
 };
 
 const muxMp4Parts = (videoPartFile: string, audioPartFile: string, muxedFile: string): boolean => {
-  const ffmpegRun = spawnSync(
-    FFMPEG_BINARY_NAME,
-    ['-y', '-i', videoPartFile, '-i', audioPartFile, '-c', 'copy', muxedFile],
-    {
-      encoding: 'utf8',
-      timeout: FFMPEG_TIMEOUT_MS,
-      env: process.env,
-    },
-  );
-  if (ffmpegRun.error) {
-    logWarn(`ffmpeg mux: ${ffmpegRun.error.message}`);
+  try {
+    runFfmpeg(['-i', videoPartFile, '-i', audioPartFile, '-c', 'copy', muxedFile]);
+    return true;
+  } catch (muxError) {
+    const muxFailure = muxError instanceof Error ? muxError.message : String(muxError);
+    logWarn(`ffmpeg mux: ${muxFailure}`);
     return false;
   }
-  if (ffmpegRun.status !== 0) {
-    const ffmpegErrorBody = (ffmpegRun.stderr ?? EMPTY_VALUE).trim();
-    logWarn(`ffmpeg mux failed: ${ffmpegErrorBody.slice(0, 200)}`);
-    return false;
-  }
-  return true;
 };
 
 const tryDownloadAdaptiveMp4 = async (

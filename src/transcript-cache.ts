@@ -22,13 +22,13 @@ export type TranscriptCacheEntry = {
   cachedAt: string;
 };
 
-const resolveCacheRoot = (): string => {
-  // Prefer XDG, then ~/.cache/yt-captions-mini-ai.
+export const resolveCacheRoot = (): string => {
+  // Prefer XDG, then ~/.cache/mini-social-media-ai-scraper.
   const xdgCacheHome = process.env.XDG_CACHE_HOME?.trim() ?? EMPTY_VALUE;
   if (xdgCacheHome.length > 0) {
-    return path.join(xdgCacheHome, 'yt-captions-mini-ai');
+    return path.join(xdgCacheHome, 'mini-social-media-ai-scraper');
   }
-  return path.join(homedir(), '.cache', 'yt-captions-mini-ai');
+  return path.join(homedir(), '.cache', 'mini-social-media-ai-scraper');
 };
 
 const renderCacheFilePath = (videoId: string, languageTag: string, exportFormat: string): string => {
@@ -72,5 +72,3 @@ export const writeTranscriptCache = async (cacheEntry: TranscriptCacheEntry): Pr
     FILE_ENCODING,
   );
 };
-
-export const getTranscriptCacheRoot = (): string => resolveCacheRoot();

@@ -14,7 +14,7 @@ export type ClientVersionOverride = {
   userAgent?: string;
 };
 
-// File shape for config/player-clients.json (and YT_CAP_CLIENT_CONFIG).
+// File shape for config/player-clients.json (and YT_CLIENT_CONFIG).
 export type PlayerClientConfigFile = {
   // Schema version.
   version: number;
@@ -39,7 +39,7 @@ export const loadPlayerClientConfig = async (): Promise<PlayerClientConfigFile> 
   if (cachedConfig) {
     return cachedConfig;
   }
-  const overridePath = process.env.YT_CAP_CLIENT_CONFIG?.trim() ?? EMPTY_VALUE;
+  const overridePath = process.env.YT_CLIENT_CONFIG?.trim() || EMPTY_VALUE;
   const configPath = overridePath.length > 0 ? overridePath : bundledConfigPath;
   try {
     const configBody = await readFile(configPath, FILE_ENCODING);

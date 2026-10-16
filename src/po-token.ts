@@ -1,6 +1,6 @@
 /**
  * Optional Proof-of-Origin (PO) token provider for future YouTube timedtext/player gates.
- * Set YT_CAP_PO_TOKEN to a static token, or YT_CAP_PO_TOKEN_COMMAND to a shell that prints one.
+ * Set YT_PO_TOKEN to a static token, or YT_PO_TOKEN_COMMAND to a shell that prints one.
  */
 
 import { execFile } from 'node:child_process';
@@ -20,17 +20,17 @@ export type PoTokenProvider = {
 };
 
 const staticEnvProvider: PoTokenProvider = {
-  providerLabel: 'env:YT_CAP_PO_TOKEN',
+  providerLabel: 'env:YT_PO_TOKEN',
   resolvePoToken: async () => {
-    const tokenValue = process.env.YT_CAP_PO_TOKEN?.trim() ?? EMPTY_VALUE;
+    const tokenValue = process.env.YT_PO_TOKEN?.trim() || EMPTY_VALUE;
     return tokenValue.length > 0 ? tokenValue : null;
   },
 };
 
 const commandEnvProvider: PoTokenProvider = {
-  providerLabel: 'env:YT_CAP_PO_TOKEN_COMMAND',
+  providerLabel: 'env:YT_PO_TOKEN_COMMAND',
   resolvePoToken: async () => {
-    const commandLine = process.env.YT_CAP_PO_TOKEN_COMMAND?.trim() ?? EMPTY_VALUE;
+    const commandLine = process.env.YT_PO_TOKEN_COMMAND?.trim() || EMPTY_VALUE;
     if (commandLine.length === 0) {
       return null;
     }

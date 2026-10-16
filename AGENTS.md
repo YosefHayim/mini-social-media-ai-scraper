@@ -1,6 +1,6 @@
-# yt-captions-mini-ai — agent instructions
+# mini-social-media-ai-scraper — agent instructions
 
-Small [Node.js](https://nodejs.org/en) / [TypeScript](https://www.typescriptlang.org/) CLI: download public [YouTube](https://www.youtube.com/) captions (video, playlist, channel Videos, or channel Shorts), optionally convert transcripts into portable [`SKILL.md`](https://agentskills.io/specification) packages via a local coding agent.
+Small [Node.js](https://nodejs.org/en) / [TypeScript](https://www.typescriptlang.org/) CLI: download public [YouTube](https://www.youtube.com/) captions (video, playlist, channel Videos, or channel Shorts), save public [Instagram](https://www.instagram.com/) reels as mp4 or mp3 with a local [whisper.cpp](https://github.com/ggml-org/whisper.cpp) transcript, optionally convert transcripts into portable [`SKILL.md`](https://agentskills.io/specification) packages via a local coding agent.
 
 Human landing page: [README.md](README.md). Visual: [assets/hero.png](assets/hero.png).
 
@@ -26,7 +26,7 @@ Keep one instruction hub here. Do not invent parallel root guides for each codin
 ## Commands
 
 ```bash
-npm start -- url=<video|playlist|@channel|@channel/shorts> [format=vtt] [lang=en] [auto] [stdout] [download] [out-dir=./scraped-yt] [output-format=txt|md|json|jsonl] [cookies=./cookies.txt] [agent=codex|grok|…] [model=<id>] [reasoning-effort=low|medium|high] [system-prompt="..."]
+npm start -- url=<video|playlist|@channel|@channel/shorts|instagram-reel> [format=vtt] [lang=en] [auto] [stdout] [download] [media=mp4|mp3] [whisper-model=large-v3-turbo-q5_0] [out-dir=./scraped-yt] [output-format=txt|md|json|jsonl] [cookies=./cookies.txt] [agent=codex|grok|…] [model=<id>] [reasoning-effort=low|medium|high] [system-prompt="..."]
 npm run typecheck
 npm run build
 ```
@@ -38,11 +38,13 @@ CLI options (see `src/cli.ts`):
 - `auto` — allow auto-generated captions
 - `stdout` — print captions instead of writing files
 - `download` — download a single video as mp4 via the native player API (no yt-dlp)
+- `media=` — Instagram only: keep the reel as `mp4` or `mp3`; default `mp4`
+- `whisper-model=` — Instagram only: whisper.cpp model name; default `large-v3-turbo-q5_0`, cached under `~/.cache/mini-social-media-ai-scraper/whisper/`
 - `cookies=` — optional Netscape cookies for public session
 - `agent=` — local agent for skill scaffold
 - `model=` / `reasoning-effort=` — agent model and effort when supported
 - `system-prompt=` — **extra** guidance appended to the official skill-authoring prompt (`emptySystemPrompt` = use official only)
-- `out-dir=` — base output directory; default `./scraped-yt`
+- `out-dir=` — base output directory; default `./scraped-yt` (YouTube) or `./scraped-instagram` (Instagram)
 
 Bulk output roots (under `out-dir`):
 
@@ -51,6 +53,7 @@ Bulk output roots (under `out-dir`):
 | Channel Videos (`@handle` or `…/videos`) | `channel-<name>/` |
 | Channel Shorts (`…/shorts`) | `shorts-<name>/` |
 | Single video / playlist | `out-dir` root |
+| Instagram reel | `out-dir` root (`<shortcode>.mp4` or `.mp3`, `<shortcode>.<lang>.txt`) |
 
 ## Layout (summary)
 
@@ -63,6 +66,11 @@ Bulk output roots (under `out-dir`):
 | `src/channel.ts` | Channel Videos/Shorts discovery + bulk folder names |
 | `src/player-api.ts` | Multi-client Innertube player (+ streaming-format payload) |
 | `src/video.ts` | mp4 download (progressive / adaptive pair + ffmpeg mux) |
+| `src/media-download.ts` | Parallel ranged-chunk media download to a file |
+| `src/ffmpeg.ts` | `ffmpeg` runner + mp3 extraction |
+| `src/instagram.ts` | Instagram reel page parse + mp4 download |
+| `src/whisper-model.ts` | whisper.cpp model download + cache |
+| `src/transcribe.ts` | Local speech-to-text via `whisper-cli` |
 | `src/http.ts` | Fetch + 429 backoff + session cookies |
 | `src/cookies.ts` | Netscape jar |
 | `src/output.ts` | Caption → txt/md/json/jsonl |
@@ -80,7 +88,7 @@ Full style rules: `CODE-STYLE.md`. No type re-export shims; import contracts fro
 When `agent=` is set:
 
 ```text
-<out-dir>/[channel-|shorts-<name>/]agents/<agent>/<model[_effort]>/<videoId>/
+<out-dir>/[channel-|shorts-<name>/]agents/<agent>/<model[_effort]>/<videoId or shortcode>/
   transcript.txt
   agent-raw.md
   metrics.json
@@ -96,15 +104,15 @@ When `agent=` is set:
 - Fail fast with clear errors; no silent fallbacks that hide causes.
 - Domain-specific names (see `CODE-STYLE.md`); no backward-compat aliases for renames.
 - Prefer [Effect](https://effect.website/) where already used; do not add frameworks casually.
-- Do not grow into yt-dlp (no full A/V pipeline, no private-content scraping). Native `download` stays limited to mp4 (combined stream, or adaptive pair muxed via `ffmpeg`); full adaptive quality is unlocked by a `visitorData` bootstrap (android → android_vr), with parallel chunked downloads to dodge the CDN's per-connection throttle. `YT_CAP_PO_TOKEN` / `YT_CAP_PO_TOKEN_COMMAND` remain the documented pot fallback.
+- Do not grow into yt-dlp (no full A/V pipeline, no private-content scraping). Native `download` stays limited to mp4 (combined stream, or adaptive pair muxed via `ffmpeg`); full adaptive quality is unlocked by a `visitorData` bootstrap (android → android_vr), with parallel chunked downloads to dodge the CDN's per-connection throttle. `YT_PO_TOKEN` / `YT_PO_TOKEN_COMMAND` remain the documented pot fallback. Instagram stays limited to one public reel or video post per run (no login, profiles, or stories).
 
 ## Verify before done
 
 - `npm run typecheck` must pass.
-- Smoke-test with a public video, playlist, channel, or shorts URL when network is available.
+- Smoke-test with a public video, playlist, channel, shorts, or Instagram reel URL when network is available.
 
 ## Safety
 
 - Public pages only; optional cookies are for public session resilience, not private content.
-- Do not commit secrets or large caption dumps (`scraped-yt/` is gitignored).
+- Do not commit secrets or large caption dumps (`scraped-yt/` and `scraped-instagram/` are gitignored).
 - Keep playlist/channel throttling; leave `dist/` and `node_modules/` alone unless the task is about them.

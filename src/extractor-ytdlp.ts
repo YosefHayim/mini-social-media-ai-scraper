@@ -41,7 +41,7 @@ export const extractCaptionsWithYtdlp = (
   languageTag: string,
 ): YtdlpCaptionResult | null => {
   // 1) Write subs only into a temp dir; never download media.
-  const tempDirectory = mkdtempSync(path.join(tmpdir(), 'ytcap-ytdlp-'));
+  const tempDirectory = mkdtempSync(path.join(tmpdir(), 'mini-social-media-ai-scraper-ytdlp-'));
   try {
     const outputTemplate = path.join(tempDirectory, '%(id)s');
     const ytdlpArgs = [
