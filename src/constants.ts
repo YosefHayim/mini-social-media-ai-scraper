@@ -258,6 +258,9 @@ export const CONSTANTS = {
     // Spacing between bulk workers only when concurrency is 1 (serial mode).
     SERIAL_VIDEO_DELAY_MS: 150,
     EXIT_CODE_FAILURE: 1,
+    // Cache key parts: caption formats plus export format (or `source` when kept).
+    CACHE_KEEP_SOURCE_KEY: 'source',
+    CACHE_KEY_SEPARATOR: '-',
     LOG_INNERTUBE_FIRST_PREFIX: 'innertube-first tracks found:',
     LOG_HTML_FALLBACK_PREFIX: 'watch HTML fallback tracks found:',
     LOG_BULK_CONCURRENCY: 'bulk concurrency:',

@@ -2,19 +2,23 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { homedir } from 'node:os';
 
+import type { TranscriptArtifact } from './types.js';
+
 import { CONSTANTS } from './constants.js';
 
 const { EMPTY_VALUE, FILE_ENCODING } = CONSTANTS.shared;
 
-// Disk cache entry for one video + language + export format.
+// Disk cache entry for one video + language + output selection.
 export type TranscriptCacheEntry = {
   // Cached video id.
   videoId: string;
   // Caption language tag.
   languageTag: string;
-  // Export format key (txt/md/json/…).
-  exportFormat: string;
-  // Plain transcript body.
+  // Output selection key: caption formats plus export format.
+  outputKey: string;
+  // Output files as the fresh run wrote them, replayed on a hit.
+  artifacts: TranscriptArtifact[];
+  // Plain transcript body for the local agent.
   transcriptBody: string;
   // Human title when known.
   videoName: string | null;
@@ -31,24 +35,26 @@ export const resolveCacheRoot = (): string => {
   return path.join(homedir(), '.cache', 'mini-social-media-ai-scraper');
 };
 
-const renderCacheFilePath = (videoId: string, languageTag: string, exportFormat: string): string => {
+const renderCacheFilePath = (videoId: string, languageTag: string, outputKey: string): string => {
   const safeLang = languageTag.replace(/[^A-Za-z0-9._-]+/g, '_') || 'und';
-  const safeFormat = exportFormat.replace(/[^A-Za-z0-9._-]+/g, '_') || 'txt';
-  return path.join(resolveCacheRoot(), 'transcripts', `${videoId}.${safeLang}.${safeFormat}.json`);
+  const safeOutputKey = outputKey.replace(/[^A-Za-z0-9._-]+/g, '_');
+  return path.join(resolveCacheRoot(), 'transcripts', `${videoId}.${safeLang}.${safeOutputKey}.json`);
 };
 
 export const readTranscriptCache = async (
   videoId: string,
   languageTag: string,
-  exportFormat: string,
+  outputKey: string,
 ): Promise<TranscriptCacheEntry | null> => {
-  const cacheFilePath = renderCacheFilePath(videoId, languageTag, exportFormat);
+  const cacheFilePath = renderCacheFilePath(videoId, languageTag, outputKey);
   try {
     const rawBody = await readFile(cacheFilePath, FILE_ENCODING);
     const parsedBody = JSON.parse(rawBody) as TranscriptCacheEntry;
     if (
       typeof parsedBody.transcriptBody !== 'string'
       || parsedBody.transcriptBody.length === 0
+      || !Array.isArray(parsedBody.artifacts)
+      || parsedBody.artifacts.length === 0
       || parsedBody.videoId !== videoId
     ) {
       return null;
@@ -63,7 +69,7 @@ export const writeTranscriptCache = async (cacheEntry: TranscriptCacheEntry): Pr
   const cacheFilePath = renderCacheFilePath(
     cacheEntry.videoId,
     cacheEntry.languageTag,
-    cacheEntry.exportFormat,
+    cacheEntry.outputKey,
   );
   await mkdir(path.dirname(cacheFilePath), { recursive: true });
   await writeFile(

@@ -67,6 +67,8 @@ const {
   VIDEO_INDEX_OFFSET,
   SERIAL_VIDEO_DELAY_MS,
   EXIT_CODE_FAILURE,
+  CACHE_KEEP_SOURCE_KEY,
+  CACHE_KEY_SEPARATOR,
   LOG_INNERTUBE_FIRST_PREFIX,
   LOG_HTML_FALLBACK_PREFIX,
   LOG_BULK_CONCURRENCY,
@@ -156,6 +158,44 @@ const persistCaptions = async (
   const outputFile = renderSubtitleFilePath(outDirectory, videoId, languageTag, outputFormat);
   await writeFile(outputFile, outputContent, FILE_ENCODING);
   return outputFile;
+};
+
+const emitCaptionOutput = async (
+  options: CliOptions,
+  videoId: string,
+  languageTag: string,
+  outputFormat: SubtitleFormat | OutputFormat,
+  outputContent: string,
+): Promise<string | null> => {
+  if (options.writeToStdout) {
+    console.log(
+      `${STDOUT_LINE_FEED}--- ${videoId}${FILE_PATH_EXTENSION_SEPARATOR}${languageTag}${FILE_PATH_EXTENSION_SEPARATOR}${outputFormat} ---${STDOUT_LINE_FEED}${outputContent}`,
+    );
+    return null;
+  }
+  const outputFile = await persistCaptions(
+    options.outDirectory,
+    outputFormat,
+    outputContent,
+    videoId,
+    languageTag,
+  );
+  logInfo(`${LOG_VIDEO_OUTPUT_TEMPLATE} ${outputFile}`);
+  return outputFile;
+};
+
+const replayCachedArtifact = async (
+  cachedArtifact: TranscriptArtifact,
+  options: CliOptions,
+): Promise<TranscriptArtifact> => {
+  const outputPath = await emitCaptionOutput(
+    options,
+    cachedArtifact.videoId,
+    cachedArtifact.languageTag,
+    cachedArtifact.outputFormat,
+    cachedArtifact.outputText,
+  );
+  return { ...cachedArtifact, outputPath };
 };
 
 const persistAgentArtifacts = async (
@@ -352,21 +392,13 @@ const buildBundleFromVtt = async (
   if (!outputContent.length) {
     throw new Error(`${LOG_EMPTY_OUTPUT} ${videoId}`);
   }
-  let outputFile: string | null = null;
-  if (options.writeToStdout) {
-    console.log(
-      `${STDOUT_LINE_FEED}--- ${videoId}${FILE_PATH_EXTENSION_SEPARATOR}${languageTag}${FILE_PATH_EXTENSION_SEPARATOR}${transformedSubtitle.outputFormat} ---${STDOUT_LINE_FEED}${outputContent}`,
-    );
-  } else {
-    outputFile = await persistCaptions(
-      options.outDirectory,
-      transformedSubtitle.outputFormat,
-      outputContent,
-      videoId,
-      languageTag,
-    );
-    logInfo(`${LOG_VIDEO_OUTPUT_TEMPLATE} ${outputFile}`);
-  }
+  const outputFile = await emitCaptionOutput(
+    options,
+    videoId,
+    languageTag,
+    transformedSubtitle.outputFormat,
+    outputContent,
+  );
   const plainOutput = convertCaptionSourceToOutput(subtitleDownload, 'txt');
   return {
     videoId,
@@ -421,42 +453,27 @@ const buildTranscriptBundleFromVideo = async (
   }
 
   const canonicalWatchUrl = getWatchUrl(sourceUrl);
-  const exportFormatKey = options.exportFormat ?? 'txt';
-  const cacheLanguageHint = options.languageTokens[0] ?? 'en';
+  const exportFormatKey = options.exportFormat || CACHE_KEEP_SOURCE_KEY;
+  const cacheOutputKey = [...options.formats, exportFormatKey].join(CACHE_KEY_SEPARATOR);
+  const cacheLanguageHint = options.languageTokens[0] || 'en';
 
   // Disk cache hit: skip network when allowed.
   if (options.useCache && !options.forceRefresh) {
-    const cacheEntry = await readTranscriptCache(videoId, cacheLanguageHint, exportFormatKey);
+    const cacheEntry = await readTranscriptCache(videoId, cacheLanguageHint, cacheOutputKey);
     if (cacheEntry) {
-      logInfo(`[${videoId}] cache hit (${cacheEntry.languageTag}/${exportFormatKey})`);
-      let outputFile: string | null = null;
-      if (!options.writeToStdout) {
-        outputFile = await persistCaptions(
-          options.outDirectory,
-          exportFormatKey,
-          cacheEntry.transcriptBody,
-          videoId,
-          cacheEntry.languageTag,
-        );
-        logInfo(`${LOG_VIDEO_OUTPUT_TEMPLATE} ${outputFile}`);
-      } else {
-        console.log(cacheEntry.transcriptBody);
+      logInfo(`[${videoId}] cache hit (${cacheEntry.languageTag}/${cacheOutputKey})`);
+      // Sequential so stdout order and same-path overwrites match a fresh run.
+      const replayedArtifacts: TranscriptArtifact[] = [];
+      for (const cachedArtifact of cacheEntry.artifacts) {
+        const replayedArtifact = await replayCachedArtifact(cachedArtifact, options);
+        replayedArtifacts.push(replayedArtifact);
       }
       return {
         videoId,
         videoName: cacheEntry.videoName,
         videoUrl: `${WATCH_QUERY_PREFIX}${videoId}`,
         languageTag: cacheEntry.languageTag,
-        artifacts: [
-          {
-            videoId,
-            languageTag: cacheEntry.languageTag,
-            sourceFormat: 'vtt',
-            outputFormat: exportFormatKey,
-            outputText: cacheEntry.transcriptBody,
-            outputPath: outputFile,
-          },
-        ],
+        artifacts: replayedArtifacts,
         localAgentTranscript: cacheEntry.transcriptBody,
       };
     }
@@ -551,21 +568,13 @@ const buildTranscriptBundleFromVideo = async (
       localAgentTranscript = plainTranscript.outputContent.trim();
     }
 
-    let outputFile: string | null = null;
-    if (options.writeToStdout) {
-      console.log(
-        `${STDOUT_LINE_FEED}--- ${videoId}${FILE_PATH_EXTENSION_SEPARATOR}${captionTrack.languageTag}${FILE_PATH_EXTENSION_SEPARATOR}${transformedSubtitle.outputFormat} ---${STDOUT_LINE_FEED}${outputContent}`,
-      );
-    } else {
-      outputFile = await persistCaptions(
-        options.outDirectory,
-        transformedSubtitle.outputFormat,
-        outputContent,
-        subtitleDownload.videoId,
-        subtitleDownload.languageTag,
-      );
-      logInfo(`${LOG_VIDEO_OUTPUT_TEMPLATE} ${outputFile}`);
-    }
+    const outputFile = await emitCaptionOutput(
+      options,
+      videoId,
+      subtitleDownload.languageTag,
+      transformedSubtitle.outputFormat,
+      outputContent,
+    );
 
     transcriptArtifacts.push({
       videoId,
@@ -597,7 +606,8 @@ const buildTranscriptBundleFromVideo = async (
     await writeTranscriptCache({
       videoId,
       languageTag: transcriptBundle.languageTag,
-      exportFormat: exportFormatKey,
+      outputKey: cacheOutputKey,
+      artifacts: transcriptArtifacts.map((transcriptArtifact) => ({ ...transcriptArtifact, outputPath: null })),
       transcriptBody: localAgentTranscript,
       videoName,
       cachedAt: new Date().toISOString(),
