@@ -1,30 +1,51 @@
+import { Option, Schema } from 'effect';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { homedir } from 'node:os';
 
-import type { TranscriptArtifact } from './types.js';
+import { outputFormatValues, subtitleFormatValues } from './types.js';
 
 import { CONSTANTS } from './constants.js';
 
-const { EMPTY_VALUE, FILE_ENCODING } = CONSTANTS.shared;
+const { EMPTY_VALUE, FILE_ENCODING, VIDEO_ID_PATTERN } = CONSTANTS.shared;
+const { LANGUAGE_TAG_PATTERN } = CONSTANTS.transcriptCache;
+
+const cachedArtifactSchema = Schema.Struct({
+  // Video the file belongs to; replay uses it in the output file name.
+  videoId: Schema.String.pipe(Schema.pattern(VIDEO_ID_PATTERN)),
+  // Caption language tag; replay uses it in the output file name.
+  languageTag: Schema.String.pipe(Schema.pattern(LANGUAGE_TAG_PATTERN)),
+  // Caption format fetched from YouTube.
+  sourceFormat: Schema.Literal(...subtitleFormatValues),
+  // Format of the written file.
+  outputFormat: Schema.Literal(...subtitleFormatValues, ...outputFormatValues),
+  // File body exactly as written.
+  outputText: Schema.String,
+  // Always null in the cache; replay sets the new path.
+  outputPath: Schema.Null,
+});
+
+const transcriptCacheEntrySchema = Schema.Struct({
+  // Cached video id.
+  videoId: Schema.String.pipe(Schema.pattern(VIDEO_ID_PATTERN)),
+  // Caption language tag.
+  languageTag: Schema.String.pipe(Schema.pattern(LANGUAGE_TAG_PATTERN)),
+  // Output selection key: caption formats, export format, caption kind.
+  outputKey: Schema.String,
+  // Output files as the fresh run wrote them, replayed on a hit.
+  artifacts: Schema.Array(cachedArtifactSchema).pipe(Schema.minItems(1)),
+  // Plain transcript body for the local agent.
+  transcriptBody: Schema.NonEmptyString,
+  // Human title when known.
+  videoName: Schema.NullOr(Schema.String),
+  // ISO timestamp when written.
+  cachedAt: Schema.String,
+});
 
 // Disk cache entry for one video + language + output selection.
-export type TranscriptCacheEntry = {
-  // Cached video id.
-  videoId: string;
-  // Caption language tag.
-  languageTag: string;
-  // Output selection key: caption formats plus export format.
-  outputKey: string;
-  // Output files as the fresh run wrote them, replayed on a hit.
-  artifacts: TranscriptArtifact[];
-  // Plain transcript body for the local agent.
-  transcriptBody: string;
-  // Human title when known.
-  videoName: string | null;
-  // ISO timestamp when written.
-  cachedAt: string;
-};
+export type TranscriptCacheEntry = Schema.Schema.Type<typeof transcriptCacheEntrySchema>;
+
+const decodeCacheEntry = Schema.decodeUnknownOption(Schema.parseJson(transcriptCacheEntrySchema));
 
 export const resolveCacheRoot = (): string => {
   // Prefer XDG, then ~/.cache/mini-social-media-ai-scraper.
@@ -49,17 +70,12 @@ export const readTranscriptCache = async (
   const cacheFilePath = renderCacheFilePath(videoId, languageTag, outputKey);
   try {
     const rawBody = await readFile(cacheFilePath, FILE_ENCODING);
-    const parsedBody = JSON.parse(rawBody) as TranscriptCacheEntry;
-    if (
-      typeof parsedBody.transcriptBody !== 'string'
-      || parsedBody.transcriptBody.length === 0
-      || !Array.isArray(parsedBody.artifacts)
-      || parsedBody.artifacts.length === 0
-      || parsedBody.videoId !== videoId
-    ) {
+    const decodedEntry = decodeCacheEntry(rawBody);
+    const cacheEntry = Option.getOrNull(decodedEntry);
+    if (!cacheEntry || cacheEntry.videoId !== videoId) {
       return null;
     }
-    return parsedBody;
+    return cacheEntry;
   } catch {
     return null;
   }

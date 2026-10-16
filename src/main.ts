@@ -68,6 +68,8 @@ const {
   SERIAL_VIDEO_DELAY_MS,
   EXIT_CODE_FAILURE,
   CACHE_KEEP_SOURCE_KEY,
+  CACHE_AUTO_CAPTIONS_KEY,
+  CACHE_MANUAL_CAPTIONS_KEY,
   CACHE_KEY_SEPARATOR,
   LOG_INNERTUBE_FIRST_PREFIX,
   LOG_HTML_FALLBACK_PREFIX,
@@ -454,7 +456,8 @@ const buildTranscriptBundleFromVideo = async (
 
   const canonicalWatchUrl = getWatchUrl(sourceUrl);
   const exportFormatKey = options.exportFormat || CACHE_KEEP_SOURCE_KEY;
-  const cacheOutputKey = [...options.formats, exportFormatKey].join(CACHE_KEY_SEPARATOR);
+  const captionKindKey = options.includeAutoCaptions ? CACHE_AUTO_CAPTIONS_KEY : CACHE_MANUAL_CAPTIONS_KEY;
+  const cacheOutputKey = [...options.formats, exportFormatKey, captionKindKey].join(CACHE_KEY_SEPARATOR);
   const cacheLanguageHint = options.languageTokens[0] || 'en';
 
   // Disk cache hit: skip network when allowed.
