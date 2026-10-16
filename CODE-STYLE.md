@@ -483,7 +483,7 @@ Why: Keeps the local idiom consistent and reviewable.
 ### src/ffmpeg.ts — ffmpeg runner and mp3 extraction
 [rule:src.ffmpeg-ts-runner-and-mp3] · verify: judgment
 
-`runFfmpeg` throws on any failure; callers decide whether that is fatal.
+`requireFfmpeg` fails fast with an install hint before any network work. `runFfmpeg` throws on any failure; callers decide whether that is fatal.
 
 ```ts
 // ✓ mini-social-media-ai-scraper idiom

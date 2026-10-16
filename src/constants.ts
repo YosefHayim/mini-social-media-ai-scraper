@@ -335,6 +335,8 @@ export const CONSTANTS = {
     FFMPEG_TIMEOUT_MS: 600_000,
     FFMPEG_BASE_ARGUMENTS: ['-y', '-loglevel', 'error'],
     FFMPEG_ERROR_PREVIEW_LENGTH: 200,
+    FFMPEG_VERSION_FLAG: '-version',
+    FFMPEG_MISSING_HINT: 'ffmpeg not found on PATH. Install it: brew install ffmpeg',
     // MP3 encoding per the ffmpeg MP3 guide: LAME VBR quality 2 (~190 kbps).
     MP3_ENCODE_ARGUMENTS: ['-vn', '-codec:a', 'libmp3lame', '-qscale:a', '2'],
   },
@@ -380,7 +382,6 @@ export const CONSTANTS = {
   transcribe: {
     WHISPER_BINARY_NAME: 'whisper-cli',
     WHISPER_VERSION_FLAG: '--version',
-    FFMPEG_VERSION_FLAG: '-version',
     WHISPER_LANGUAGE_AUTO: 'auto',
     WHISPER_TIMEOUT_MS: 1_800_000,
     WHISPER_ERROR_PREVIEW_LENGTH: 200,
@@ -389,7 +390,6 @@ export const CONSTANTS = {
     VTT_EXTENSION: '.vtt',
     JSON_EXTENSION: '.json',
     WHISPER_MISSING_HINT: 'whisper-cli not found on PATH. Install whisper.cpp: brew install whisper-cpp',
-    FFMPEG_MISSING_HINT: 'ffmpeg not found on PATH. Install it: brew install ffmpeg',
   },
 
   output: {
@@ -432,6 +432,9 @@ export const CONSTANTS = {
       'android_vr',
       'web_embedded',
     ],
+    // Clients tried with the bootstrapped visitorData for `download`. visionOS URLs
+    // serve full adaptive files; android_vr URLs now 403 past the first ranges.
+    DOWNLOAD_CLIENT_ORDER: ['visionos', 'android_vr'],
   },
 
   video: {

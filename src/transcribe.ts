@@ -4,14 +4,14 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { requireFfmpeg } from './ffmpeg.js';
+
 import { CONSTANTS } from './constants.js';
 
 const { FILE_ENCODING } = CONSTANTS.shared;
-const { FFMPEG_BINARY_NAME } = CONSTANTS.ffmpeg;
 const {
   WHISPER_BINARY_NAME,
   WHISPER_VERSION_FLAG,
-  FFMPEG_VERSION_FLAG,
   WHISPER_LANGUAGE_AUTO,
   WHISPER_TIMEOUT_MS,
   WHISPER_ERROR_PREVIEW_LENGTH,
@@ -20,7 +20,6 @@ const {
   VTT_EXTENSION,
   JSON_EXTENSION,
   WHISPER_MISSING_HINT,
-  FFMPEG_MISSING_HINT,
 } = CONSTANTS.transcribe;
 
 // Local speech-to-text output for one audio file.
@@ -41,20 +40,12 @@ const whisperReportSchema = Schema.Struct({
 
 const decodeWhisperReport = Schema.decodeUnknown(Schema.parseJson(whisperReportSchema));
 
-const isBinaryOnPath = (binaryName: string, versionFlag: string): boolean => {
-  const probeRun = spawnSync(binaryName, [versionFlag], { stdio: 'ignore' });
-  return !probeRun.error;
-};
-
 export const requireTranscribeTools = (): void => {
-  const whisperReady = isBinaryOnPath(WHISPER_BINARY_NAME, WHISPER_VERSION_FLAG);
-  if (!whisperReady) {
+  const whisperProbe = spawnSync(WHISPER_BINARY_NAME, [WHISPER_VERSION_FLAG], { stdio: 'ignore' });
+  if (whisperProbe.error) {
     throw new Error(WHISPER_MISSING_HINT);
   }
-  const ffmpegReady = isBinaryOnPath(FFMPEG_BINARY_NAME, FFMPEG_VERSION_FLAG);
-  if (!ffmpegReady) {
-    throw new Error(FFMPEG_MISSING_HINT);
-  }
+  requireFfmpeg();
 };
 
 const runWhisperCli = (audioFile: string, modelFile: string, outputBase: string): void => {

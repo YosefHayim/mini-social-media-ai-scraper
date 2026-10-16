@@ -65,7 +65,7 @@ VIDEO_ID=dQw4w9WgXcQ BULK_N=6 bash scripts/bench-captions.sh
 
 ## Quick start
 
-Requires [Node.js](https://nodejs.org/en) 20+. Instagram reels also need [`ffmpeg`](https://ffmpeg.org/) and [whisper.cpp](https://github.com/ggml-org/whisper.cpp) on `PATH` (`brew install ffmpeg whisper-cpp`).
+Requires [Node.js](https://nodejs.org/en) 20+. YouTube `download` also needs [`ffmpeg`](https://ffmpeg.org/) on `PATH`, and Instagram reels need `ffmpeg` and [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`brew install ffmpeg whisper-cpp`).
 
 ```bash
 # Global (published package)
@@ -116,7 +116,7 @@ mini-social-media-ai-scraper url=VIDEO_ID download out-dir=./downloads
 
 Downloads through the same Innertube player API as captions — no yt-dlp. Quality selection tries the **best mp4 video + best mp4 audio** (muxed via `ffmpeg`, H.264 preferred so system players can open it), and falls back to the **combined mp4** stream when YouTube refuses the adaptive streams.
 
-> **Quality note:** adaptive (video-only/audio-only) streams are unlocked natively by attaching a fresh `visitorData` from the player's `android` response to an `android_vr` player request — no `PO token` needed. That serves the full adaptive ladder (up to the video's max mp4 resolution, e.g. 1080p), and downloads split into parallel bounded-range chunks to stay off the CDN's per-connection throttle. `YT_PO_TOKEN` (or `YT_PO_TOKEN_COMMAND`) remain a documented fallback if YouTube starts requiring pot.
+> **Quality note:** adaptive (video-only/audio-only) streams are unlocked natively by attaching a fresh `visitorData` from the player's `android` response to a `visionos` player request (`android_vr` as fallback) — no `PO token` needed. That serves the full adaptive ladder (up to the video's max mp4 resolution, e.g. 1080p), and downloads split into parallel bounded-range chunks to stay off the CDN's per-connection throttle. `YT_PO_TOKEN` (or `YT_PO_TOKEN_COMMAND`) remain a documented fallback if YouTube starts requiring pot.
 
 ### Instagram reel (media + transcript)
 

@@ -6,7 +6,7 @@ import { fetchPlayerPayloadFromPlayerApi } from './player-api.js';
 import { fetchTextResourceOptional } from './http.js';
 import { extractEmbeddedJson } from './parsing.js';
 import { downloadMediaToFile } from './media-download.js';
-import { runFfmpeg } from './ffmpeg.js';
+import { requireFfmpeg, runFfmpeg } from './ffmpeg.js';
 import { logInfo, logWarn } from './log.js';
 
 import { CONSTANTS } from './constants.js';
@@ -320,6 +320,9 @@ export const downloadVideoWithPlayerApi = async (
   videoId: string,
   outDirectory: string,
 ): Promise<string> => {
+  // Best-quality streams come as a video + audio pair that only ffmpeg can join.
+  requireFfmpeg();
+
   // Fast path: Innertube player payload (no watch HTML) with streaming formats.
   let playerPayloadWithClient = await fetchPlayerPayloadFromPlayerApi(watchUrl, videoId, null);
 

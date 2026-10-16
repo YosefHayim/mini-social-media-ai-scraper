@@ -8,8 +8,17 @@ const {
   FFMPEG_TIMEOUT_MS,
   FFMPEG_BASE_ARGUMENTS,
   FFMPEG_ERROR_PREVIEW_LENGTH,
+  FFMPEG_VERSION_FLAG,
+  FFMPEG_MISSING_HINT,
   MP3_ENCODE_ARGUMENTS,
 } = CONSTANTS.ffmpeg;
+
+export const requireFfmpeg = (): void => {
+  const probeRun = spawnSync(FFMPEG_BINARY_NAME, [FFMPEG_VERSION_FLAG], { stdio: 'ignore' });
+  if (probeRun.error) {
+    throw new Error(FFMPEG_MISSING_HINT);
+  }
+};
 
 export const runFfmpeg = (ffmpegArguments: string[]): void => {
   const ffmpegRun = spawnSync(FFMPEG_BINARY_NAME, [...FFMPEG_BASE_ARGUMENTS, ...ffmpegArguments], {

@@ -52,7 +52,8 @@ mini-social-media-ai-scraper url=VIDEO_ID agent=grok model=grok-4.5 reasoning-ef
 mini-social-media-ai-scraper url=VIDEO_ID agent=codex model=gpt-5.3-codex-spark
 
 # Native video mp4 download → <out-dir>/<videoId>.mp4
-# Full adaptive quality is unlocked natively via a visitorData bootstrap (android → android_vr),
+# Needs ffmpeg on PATH. Full adaptive quality is unlocked natively via a visitorData bootstrap
+# (android → visionos, android_vr as fallback),
 # no PO token needed; parallel chunked downloads dodge the CDN per-connection throttle.
 # YT_PO_TOKEN / YT_PO_TOKEN_COMMAND remain the pot fallback.
 mini-social-media-ai-scraper url=VIDEO_ID download
