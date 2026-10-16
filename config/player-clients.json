@@ -24,6 +24,9 @@
     "android_vr": {
       "clientVersion": "1.65.10"
     },
+    "visionos": {
+      "clientVersion": "1.02"
+    },
     "web_embedded": {
       "clientVersion": "1.20250923.21.00"
     }

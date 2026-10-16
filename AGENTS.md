@@ -104,7 +104,7 @@ When `agent=` is set:
 - Fail fast with clear errors; no silent fallbacks that hide causes.
 - Domain-specific names (see `CODE-STYLE.md`); no backward-compat aliases for renames.
 - Prefer [Effect](https://effect.website/) where already used; do not add frameworks casually.
-- Do not grow into yt-dlp (no full A/V pipeline, no private-content scraping). Native `download` stays limited to mp4 (combined stream, or adaptive pair muxed via `ffmpeg`); full adaptive quality is unlocked by a `visitorData` bootstrap (android → android_vr), with parallel chunked downloads to dodge the CDN's per-connection throttle. `YT_PO_TOKEN` / `YT_PO_TOKEN_COMMAND` remain the documented pot fallback. Instagram stays limited to one public reel or video post per run (no login, profiles, or stories).
+- Do not grow into yt-dlp (no full A/V pipeline, no private-content scraping). Native `download` stays limited to mp4 (combined stream, or adaptive pair muxed via `ffmpeg`); full adaptive quality is unlocked by a `visitorData` bootstrap (android → visionos, android_vr as fallback), with parallel chunked downloads to dodge the CDN's per-connection throttle. `YT_PO_TOKEN` / `YT_PO_TOKEN_COMMAND` remain the documented pot fallback. Instagram stays limited to one public reel or video post per run (no login, profiles, or stories).
 
 ## Verify before done
 

@@ -42,6 +42,7 @@ const {
   LOG_STICKY_CLIENT,
   LOG_VISITOR_BOOTSTRAP,
   PREFERRED_CLIENT_ORDER,
+  DOWNLOAD_CLIENT_ORDER,
 } = CONSTANTS.playerApi;
 
 // Last player client that returned caption tracks in this process (sticky fast path).
@@ -91,6 +92,22 @@ const PLAYER_CLIENT_PROFILES: PlayerClientProfile[] = [
       androidSdkVersion: 32,
       osName: 'Android',
       osVersion: '12L',
+    },
+    useEmbeddedThirdParty: false,
+  },
+  {
+    profileLabel: 'visionos',
+    innertubeHost: YOUTUBE_WWW_HOST,
+    apiKey: DEFAULT_WEB_API_KEY,
+    clientId: '101',
+    clientName: 'VISIONOS',
+    clientVersion: '1.02',
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
+    extraClientFields: {
+      deviceMake: 'Apple',
+      deviceModel: 'RealityDevice17,1',
+      osName: 'visionOS',
+      osVersion: '26.5.23O471',
     },
     useEmbeddedThirdParty: false,
   },
@@ -772,8 +789,7 @@ export const fetchPlayerPayloadFromPlayerApi = async (
   }
 
   // Re-fetch with the fresh visitorData attached so the adaptive stream URLs
-  // YouTube returns are actually servable (no PO token needed). ANDROID_VR
-  // URLs serve full adaptive files, while plain ANDROID URLs stay chunk-capped.
+  // YouTube returns are actually servable (no PO token needed).
   const responseContext = (firstPass.playerPayload as Record<string, unknown> | null)
     ?.responseContext as Record<string, unknown> | null | undefined;
   const bootstrapVisitorData =
@@ -781,10 +797,15 @@ export const fetchPlayerPayloadFromPlayerApi = async (
       ? responseContext.visitorData
       : null;
   if (bootstrapVisitorData) {
-    const vrProfile =
-      orderedProfiles.find((clientProfile) => clientProfile.profileLabel === 'android_vr')
-      ?? firstPass.clientProfile;
-    const unlockedPass = await walkForPlayerPayload([vrProfile], bootstrapVisitorData);
+    const downloadProfiles = orderedProfiles.filter((clientProfile) =>
+      DOWNLOAD_CLIENT_ORDER.includes(clientProfile.profileLabel),
+    );
+    downloadProfiles.sort(
+      (leftProfile, rightProfile) =>
+        DOWNLOAD_CLIENT_ORDER.indexOf(leftProfile.profileLabel)
+        - DOWNLOAD_CLIENT_ORDER.indexOf(rightProfile.profileLabel),
+    );
+    const unlockedPass = await walkForPlayerPayload(downloadProfiles, bootstrapVisitorData);
     if (unlockedPass) {
       logInfo(`[${videoId}] ${LOG_VISITOR_BOOTSTRAP}`);
       stickyPlayerClientLabel = unlockedPass.clientProfile.profileLabel;
