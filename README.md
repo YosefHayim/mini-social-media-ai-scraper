@@ -1,15 +1,15 @@
-# yt-captions-mini-ai (`ytcap`)
+# mini-social-media-ai-scraper
 
-![yt-captions-mini-ai](assets/hero.png)
+![mini-social-media-ai-scraper](assets/hero.png)
 
-[![canary](https://github.com/YosefHayim/yt-captions-mini-ai/actions/workflows/canary.yml/badge.svg)](https://github.com/YosefHayim/yt-captions-mini-ai/actions/workflows/canary.yml)
-[![ci](https://github.com/YosefHayim/yt-captions-mini-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/YosefHayim/yt-captions-mini-ai/actions/workflows/ci.yml)
+[![canary](https://github.com/YosefHayim/mini-social-media-ai-scraper/actions/workflows/canary.yml/badge.svg)](https://github.com/YosefHayim/mini-social-media-ai-scraper/actions/workflows/canary.yml)
+[![ci](https://github.com/YosefHayim/mini-social-media-ai-scraper/actions/workflows/ci.yml/badge.svg)](https://github.com/YosefHayim/mini-social-media-ai-scraper/actions/workflows/ci.yml)
 
-Tiny [TypeScript](https://www.typescriptlang.org/) / [Node.js](https://nodejs.org/en) CLI that downloads public [YouTube](https://www.youtube.com/) captions — for a **video**, **playlist**, **channel**, or **channel Shorts** — downloads a **video as mp4**, and optionally pipes the transcript into a **local coding agent** to scaffold portable [`SKILL.md`](https://agentskills.io/specification) packages.
+Tiny [TypeScript](https://www.typescriptlang.org/) / [Node.js](https://nodejs.org/en) CLI that downloads public [YouTube](https://www.youtube.com/) captions — for a **video**, **playlist**, **channel**, or **channel Shorts** — downloads a **video as mp4**, saves public [Instagram](https://www.instagram.com/) **reels** as mp4 or mp3 with a local [whisper.cpp](https://github.com/ggml-org/whisper.cpp) transcript, and optionally pipes the transcript into a **local coding agent** to scaffold portable [`SKILL.md`](https://agentskills.io/specification) packages.
 
-**Binary:** `ytcap` (alias `yt-captions-mini-ai`).
+**Binary:** `mini-social-media-ai-scraper`.
 
-Not a second [yt-dlp](https://github.com/yt-dlp/yt-dlp). That project is the full media Swiss-army knife across thousands of sites. This is a **YouTube-only**, captions-focused CLI: Innertube-first extraction, bulk concurrency, disk cache, optional yt-dlp fallback, local-agent skill scaffolding, and a native single-video mp4 download.
+Not a second [yt-dlp](https://github.com/yt-dlp/yt-dlp). That project is the full media Swiss-army knife across thousands of sites. This is a transcript-focused CLI for **YouTube and Instagram reels**: Innertube-first extraction, bulk concurrency, disk cache, optional yt-dlp fallback, local-agent skill scaffolding, a native single-video mp4 download, and reel media plus offline speech-to-text.
 
 ## When to use us vs yt-dlp
 
@@ -18,6 +18,7 @@ Not a second [yt-dlp](https://github.com/yt-dlp/yt-dlp). That project is the ful
 | Multi-format media, muxing, thousands of sites | [yt-dlp](https://github.com/yt-dlp/yt-dlp) |
 | **Fast public YouTube captions** (video / playlist / channel) | **this tool** |
 | **Native single-video mp4 download** (public videos, `download` flag) | **this tool** |
+| **Public Instagram reel as mp4 or mp3 + transcript** (local whisper.cpp, no cloud) | **this tool** |
 | Tiny library `fetchTranscript(id)` in app code | [youtube-transcript](https://www.npmjs.com/package/youtube-transcript) (often rate-limited / captcha) |
 | Full Innertube client as a dependency | [youtubei.js](https://github.com/LuanRT/YouTube.js) (library, not a captions CLI) |
 
@@ -31,7 +32,7 @@ Measured on a laptop against a **generic public video** and a small playlist. Ti
 
 | Tool | Run 1 | Run 2 | Run 3 | Median | vs this |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| **yt-captions-mini-ai** (Innertube-first) | 1.55s | 1.63s | 1.70s | **1.63s** | 1× |
+| **mini-social-media-ai-scraper** (Innertube-first) | 1.55s | 1.63s | 1.70s | **1.63s** | 1× |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) `2026.07.04` (`--skip-download --write-auto-subs --sub-langs en`) | 3.80s | 4.26s | 3.92s | **3.92s** | **~2.4× slower** |
 | Previous HTML-first path (same repo, pre-fast-path) | 14.4s | 14.9s | 14.3s | **14.5s** | **~8.9× slower** |
 
@@ -64,16 +65,16 @@ VIDEO_ID=dQw4w9WgXcQ BULK_N=6 bash scripts/bench-captions.sh
 
 ## Quick start
 
-Requires [Node.js](https://nodejs.org/en) 20+.
+Requires [Node.js](https://nodejs.org/en) 20+. Instagram reels also need [`ffmpeg`](https://ffmpeg.org/) and [whisper.cpp](https://github.com/ggml-org/whisper.cpp) on `PATH` (`brew install ffmpeg whisper-cpp`).
 
 ```bash
 # Global (published package)
-npm install -g yt-captions-mini-ai
-ytcap url=https://www.youtube.com/watch?v=dQw4w9WgXcQ lang=en auto output-format=txt
+npm install -g mini-social-media-ai-scraper
+mini-social-media-ai-scraper url=https://www.youtube.com/watch?v=dQw4w9WgXcQ lang=en auto output-format=txt
 
 # From source
-git clone https://github.com/YosefHayim/yt-captions-mini-ai.git
-cd yt-captions-mini-ai
+git clone https://github.com/YosefHayim/mini-social-media-ai-scraper.git
+cd mini-social-media-ai-scraper
 npm install          # prepare builds dist/
 npm start -- url=https://www.youtube.com/watch?v=dQw4w9WgXcQ lang=en auto output-format=txt
 # dev without build: npm run dev -- url=…
@@ -85,45 +86,60 @@ Machine-oriented recipes for LLMs: [`llms.txt`](llms.txt). Agent skill: [`skills
 
 ```bash
 # Single video
-ytcap url=https://www.youtube.com/watch?v=dQw4w9WgXcQ output-format=txt auto
+mini-social-media-ai-scraper url=https://www.youtube.com/watch?v=dQw4w9WgXcQ output-format=txt auto
 
 # Playlist (parallel workers; cap count for a quick scrape)
-ytcap url=https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID output-format=txt auto concurrency=8 max-videos=20
+mini-social-media-ai-scraper url=https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID output-format=txt auto concurrency=8 max-videos=20
 
 # Entire channel (Videos tab) → scraped-yt/channel-<name>/
-ytcap url=https://www.youtube.com/@handle output-format=txt auto concurrency=8
+mini-social-media-ai-scraper url=https://www.youtube.com/@handle output-format=txt auto concurrency=8
 
 # Channel Shorts tab → scraped-yt/shorts-<name>/
-ytcap url=https://www.youtube.com/@handle/shorts output-format=txt auto
+mini-social-media-ai-scraper url=https://www.youtube.com/@handle/shorts output-format=txt auto
 
-# Disk cache is on by default (~/.cache/yt-captions-mini-ai); force refresh:
-ytcap url=dQw4w9WgXcQ lang=en auto force output-format=txt
+# Disk cache is on by default (~/.cache/mini-social-media-ai-scraper); force refresh:
+mini-social-media-ai-scraper url=dQw4w9WgXcQ lang=en auto force output-format=txt
 
 # Optional yt-dlp fallback (yt-dlp must be on PATH)
-ytcap url=VIDEO_ID lang=en auto extractor=auto
+mini-social-media-ai-scraper url=VIDEO_ID lang=en auto extractor=auto
 ```
 
 ### Video download (native, single video)
 
 ```bash
 # Download the video as mp4 → scraped-yt/<videoId>.mp4
-ytcap url=https://www.youtube.com/watch?v=VIDEO_ID download
+mini-social-media-ai-scraper url=https://www.youtube.com/watch?v=VIDEO_ID download
 
 # Custom folder
-ytcap url=VIDEO_ID download out-dir=./downloads
+mini-social-media-ai-scraper url=VIDEO_ID download out-dir=./downloads
 ```
 
 Downloads through the same Innertube player API as captions — no yt-dlp. Quality selection tries the **best mp4 video + best mp4 audio** (muxed via `ffmpeg`, H.264 preferred so system players can open it), and falls back to the **combined mp4** stream when YouTube refuses the adaptive streams.
 
-> **Quality note:** adaptive (video-only/audio-only) streams are unlocked natively by attaching a fresh `visitorData` from the player's `android` response to an `android_vr` player request — no `PO token` needed. That serves the full adaptive ladder (up to the video's max mp4 resolution, e.g. 1080p), and downloads split into parallel bounded-range chunks to stay off the CDN's per-connection throttle. `YT_CAP_PO_TOKEN` (or `YT_CAP_PO_TOKEN_COMMAND`) remain a documented fallback if YouTube starts requiring pot.
+> **Quality note:** adaptive (video-only/audio-only) streams are unlocked natively by attaching a fresh `visitorData` from the player's `android` response to an `android_vr` player request — no `PO token` needed. That serves the full adaptive ladder (up to the video's max mp4 resolution, e.g. 1080p), and downloads split into parallel bounded-range chunks to stay off the CDN's per-connection throttle. `YT_PO_TOKEN` (or `YT_PO_TOKEN_COMMAND`) remain a documented fallback if YouTube starts requiring pot.
+
+### Instagram reel (media + transcript)
+
+```bash
+# Reel as mp4 + transcript → scraped-instagram/<shortcode>.mp4 and <shortcode>.<lang>.txt
+mini-social-media-ai-scraper url=https://www.instagram.com/reel/SHORTCODE/
+
+# Audio only as mp3, transcript as markdown
+mini-social-media-ai-scraper url=https://www.instagram.com/reel/SHORTCODE/ media=mp3 output-format=md
+
+# Smaller, faster speech model
+mini-social-media-ai-scraper url=https://www.instagram.com/reel/SHORTCODE/ whisper-model=base
+```
+
+Reads the public post page (no login, no yt-dlp), downloads the progressive mp4, and transcribes the audio locally with `whisper-cli` (language auto-detected). The speech model downloads once from [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp) into `~/.cache/mini-social-media-ai-scraper/whisper/` (default `large-v3-turbo-q5_0`, about 550 MB). Private, age-gated, and photo posts fail with a clear error. `agent=` works the same as for YouTube.
 
 ### Skill scaffold (captions → local agent)
 
 The named agent CLI must already be on your `PATH` (this tool does not install agents).
 
 ```bash
-ytcap url=https://www.youtube.com/watch?v=VIDEO_ID agent=codex model=gpt-5.3-codex-spark
-ytcap url=VIDEO_ID agent=grok model=grok-4.5 reasoning-effort=high
+mini-social-media-ai-scraper url=https://www.youtube.com/watch?v=VIDEO_ID agent=codex model=gpt-5.3-codex-spark
+mini-social-media-ai-scraper url=VIDEO_ID agent=grok model=grok-4.5 reasoning-effort=high
 ```
 
 Default system prompt authors **official-style skill packages** (YAML frontmatter + when-to-use + procedure), using each agent’s docs when known, otherwise the [Agent Skills spec](https://agentskills.io/specification). Extra guidance: `system-prompt="..."`.
@@ -135,6 +151,7 @@ Default system prompt authors **official-style skill packages** (YAML frontmatte
 | Single video / playlist | `./scraped-yt/` (or `out-dir=`) |
 | Channel Videos tab | `./scraped-yt/channel-<name>/` |
 | Channel Shorts tab | `./scraped-yt/shorts-<name>/` |
+| Instagram reel | `./scraped-instagram/` (or `out-dir=`) |
 
 ```text
 scraped-yt/
@@ -147,31 +164,37 @@ scraped-yt/
     agent-raw.md
     metrics.json
     <skill-name>/SKILL.md
+scraped-instagram/
+  <shortcode>.mp4                              # or .mp3 with media=mp3
+  <shortcode>.<lang>.txt
+  agents/<agent>/<model[_effort]>/<shortcode>/   # when agent= is set
 ```
 
-`scraped-yt/` is gitignored.
+`scraped-yt/` and `scraped-instagram/` are gitignored.
 
 ## Options
 
 ```bash
-npm start -- url=<youtube-url-or-id> [options]
+npm start -- url=<youtube-url-or-id | instagram-reel-url> [options]
 npm start   # interactive prompts when no args
 ```
 
 | Option | Meaning | Default |
 | --- | --- | --- |
-| `url=` | Video, Shorts id/url, playlist, or channel (`@handle`, `/channel/UC…`, `/shorts`) | required (or interactive) |
+| `url=` | YouTube video, Shorts id/url, playlist, or channel (`@handle`, `/channel/UC…`, `/shorts`), or Instagram reel/post URL | required (or interactive) |
 | `format=` | Caption source formats (`vtt`, `srt`, `json3`, …) | `vtt` |
 | `lang=` | Language tokens | `en` |
 | `auto` | Allow auto-generated captions | off |
 | `output-format=` | `txt`, `md`, `json`, `jsonl` | derived |
-| `out-dir=` | Output directory | `./scraped-yt` |
+| `out-dir=` | Output directory | `./scraped-yt` (YouTube), `./scraped-instagram` (Instagram) |
 | `stdout` | Print instead of writing files | off |
 | `cookies=` | Optional Netscape `cookies.txt` for public session cookies | none |
 | `concurrency=` | Parallel video workers for playlist/channel (`1`–`32`); AIMD shrink on 429 | `4` |
 | `max-videos=` | Cap how many bulk videos to process | unlimited |
 | `extractor=` | `auto` (native→yt-dlp), `native`, `ytdlp` | `auto` |
 | `download` | Download the video as mp4 (single video; native player API) | off |
+| `media=` | Instagram only: keep the reel as `mp4` (video) or `mp3` (audio) | `mp4` |
+| `whisper-model=` | Instagram only: [whisper.cpp model](https://huggingface.co/ggerganov/whisper.cpp) name (`base`, `small`, `large-v3-turbo`, …) | `large-v3-turbo-q5_0` |
 | `no-cache` | Disable disk transcript cache | off (cache on) |
 | `force` | Bypass cache and refresh from YouTube | off |
 | `agent=` | Local agent for skill scaffold | none |
@@ -201,17 +224,17 @@ Stack: [Effect](https://effect.website/), [@clack/prompts](https://github.com/bo
 
 ## Resilience & speed (YouTube captions path)
 
-YouTube-only, captions-only (client ideas inspired by [yt-dlp](https://github.com/yt-dlp/yt-dlp)):
+Applies to YouTube captions only (client ideas inspired by [yt-dlp](https://github.com/yt-dlp/yt-dlp)):
 
 - **Innertube-first** — call `youtubei/v1/player` before fetching watch HTML
 - **Sticky last-good client** — after the first hit, reuse that client for the rest of the process
 - **Race top-2 clients** on cold miss (configurable via `config/player-clients.json`)
-- **Preferred order** — `android` → `ios` → `web` → … (overridable JSON / `YT_CAP_CLIENT_CONFIG`)
+- **Preferred order** — `android` → `ios` → `web` → … (overridable JSON / `YT_CLIENT_CONFIG`)
 - **HTML fallback** only when player returns no tracks
 - **extractor=auto** — native first, then optional **yt-dlp** if native fails
-- **Disk cache** — `~/.cache/yt-captions-mini-ai/transcripts/` (`force` / `no-cache` to skip)
+- **Disk cache** — `~/.cache/mini-social-media-ai-scraper/transcripts/` (`force` / `no-cache` to skip)
 - **undici keep-alive** pool + **AIMD concurrency** when bulk hits HTTP 429
-- **PO token hooks** — `YT_CAP_PO_TOKEN` or `YT_CAP_PO_TOKEN_COMMAND` when YouTube requires pot
+- **PO token hooks** — `YT_PO_TOKEN` or `YT_PO_TOKEN_COMMAND` when YouTube requires pot
 - HTTP retries on 429/502/503/504 with backoff and `Retry-After`
 - Optional Netscape cookies + in-process `Set-Cookie` jar
 - **Nightly canary** — three public videos; status badge at the top of this README
@@ -225,10 +248,13 @@ YouTube-only, captions-only (client ideas inspired by [yt-dlp](https://github.co
 - Channel **Videos** and **Shorts** tabs with bulk folders
 - Optional local-agent skill packaging + run metrics JSON
 - **Native single-video mp4 download** (combined stream, or adaptive pair muxed via `ffmpeg`; `visitorData` bootstrap unlocks full quality, parallel chunks beat the CDN throttle)
+- **Public Instagram reels and video posts** (one URL at a time): mp4 or mp3 plus a local whisper.cpp transcript
 
 **Out of scope**
 
-- Playlist/channel media download, format conversion (beyond mp4 mux), or private/members content (use [yt-dlp](https://github.com/yt-dlp/yt-dlp))
+- Playlist/channel media download, format conversion (beyond mp4 mux and mp3), or private/members content (use [yt-dlp](https://github.com/yt-dlp/yt-dlp))
+- Instagram profiles, stories, photo posts, or login-only posts
+- Other social sites
 - Cloud caption APIs or hosted services
 - Installing or replacing agent products — this only **invokes** CLIs already on `PATH`
 - GUI

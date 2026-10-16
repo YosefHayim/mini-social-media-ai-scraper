@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Overridable Innertube client versions. Point YT_CAP_CLIENT_CONFIG at a custom file to update without a release.",
+  "description": "Overridable Innertube client versions. Point YT_CLIENT_CONFIG at a custom file to update without a release.",
   "preferredOrder": ["android", "ios", "web", "mweb", "tv", "android_vr", "web_embedded"],
   "raceClientCount": 2,
   "clients": {

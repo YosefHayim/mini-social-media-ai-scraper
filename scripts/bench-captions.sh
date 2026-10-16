@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MAIN_ROOT="$(cd "$ROOT/../yt-captions-mini-ai" && pwd)"
+MAIN_ROOT="$(cd "$ROOT/../mini-social-media-ai-scraper" && pwd)"
 VIDEO_ID="${VIDEO_ID:-iQyg-KypKAA}"
 VIDEO_URL="https://www.youtube.com/watch?v=${VIDEO_ID}"
 # Known multi-video playlist; capped with max-videos for fair bulk timing.

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import {
   AgentArtifactPaths,
@@ -12,6 +12,7 @@ import {
   SubtitleFormat,
   TranscriptArtifact,
   TranscriptBundle,
+  VttTranscriptSource,
   YoutubeCaptionTrack,
 } from './types.js';
 import { fetchTextResourceOptional, getHttpThrottleStats, resetHttpThrottleStats } from './http.js';
@@ -38,6 +39,10 @@ import { criteriaFromCliOptions, filterVideoIdsByCriteria } from './video-filter
 import { readTranscriptCache, writeTranscriptCache } from './transcript-cache.js';
 import { extractCaptionsWithYtdlp } from './extractor-ytdlp.js';
 import { downloadVideoWithPlayerApi } from './video.js';
+import { downloadInstagramVideo, fetchInstagramReel, isInstagramUrl } from './instagram.js';
+import { extractMp3Audio } from './ffmpeg.js';
+import { ensureWhisperModel } from './whisper-model.js';
+import { requireTranscribeTools, transcribeAudioFile } from './transcribe.js';
 
 import { CONSTANTS } from './constants.js';
 
@@ -98,7 +103,12 @@ const {
   LOG_AGENT_EMPTY,
   LOG_AGENT_STARTED,
   LOG_VIDEO_SINGLE_ONLY,
+  LOG_INSTAGRAM_REEL,
+  LOG_INSTAGRAM_TRANSCRIBING,
+  LOG_MEDIA_SAVED_TEMPLATE,
+  VTT_DEFAULT_EXPORT_FORMAT,
 } = CONSTANTS.main;
+const { MEDIA_EXTENSION_MP4, MEDIA_EXTENSION_MP3 } = CONSTANTS.video;
 
 const renderSubtitleFilePath = (
   outDirectory: string,
@@ -324,24 +334,19 @@ const loadCaptionTracksForVideo = async (
   return { captionTracks, pageHtml };
 };
 
-const buildBundleFromYtdlp = async (
-  videoId: string,
-  canonicalWatchUrl: string,
+const buildBundleFromVtt = async (
+  vttSource: VttTranscriptSource,
   options: CliOptions,
 ): Promise<TranscriptBundle> => {
-  // Fallback extractor: yt-dlp subs only → convert to requested export format.
-  const languageHint = options.languageTokens[0] ?? 'en';
-  const ytdlpCaption = extractCaptionsWithYtdlp(canonicalWatchUrl, languageHint);
-  if (!ytdlpCaption) {
-    throw new Error(`${LOG_NO_TRACK} ${videoId} (yt-dlp fallback failed)`);
-  }
+  // Convert one WebVTT transcript to the requested export format (txt by default).
+  const { videoId, languageTag } = vttSource;
   const subtitleDownload: CaptionDownload = {
     videoId,
-    languageTag: ytdlpCaption.languageTag,
+    languageTag,
     fileFormat: 'vtt',
-    fileContent: ytdlpCaption.captionBody,
+    fileContent: vttSource.vttBody,
   };
-  const exportFormat = options.exportFormat ?? 'txt';
+  const exportFormat = options.exportFormat || VTT_DEFAULT_EXPORT_FORMAT;
   const transformedSubtitle = convertCaptionSourceToOutput(subtitleDownload, exportFormat);
   const outputContent = transformedSubtitle.outputContent.trim();
   if (!outputContent.length) {
@@ -350,7 +355,7 @@ const buildBundleFromYtdlp = async (
   let outputFile: string | null = null;
   if (options.writeToStdout) {
     console.log(
-      `${STDOUT_LINE_FEED}--- ${videoId}${FILE_PATH_EXTENSION_SEPARATOR}${ytdlpCaption.languageTag}${FILE_PATH_EXTENSION_SEPARATOR}${transformedSubtitle.outputFormat} ---${STDOUT_LINE_FEED}${outputContent}`,
+      `${STDOUT_LINE_FEED}--- ${videoId}${FILE_PATH_EXTENSION_SEPARATOR}${languageTag}${FILE_PATH_EXTENSION_SEPARATOR}${transformedSubtitle.outputFormat} ---${STDOUT_LINE_FEED}${outputContent}`,
     );
   } else {
     outputFile = await persistCaptions(
@@ -358,28 +363,51 @@ const buildBundleFromYtdlp = async (
       transformedSubtitle.outputFormat,
       outputContent,
       videoId,
-      ytdlpCaption.languageTag,
+      languageTag,
     );
     logInfo(`${LOG_VIDEO_OUTPUT_TEMPLATE} ${outputFile}`);
   }
-  const plainTranscript = convertCaptionSourceToOutput(subtitleDownload, 'txt').outputContent.trim();
+  const plainOutput = convertCaptionSourceToOutput(subtitleDownload, 'txt');
   return {
     videoId,
-    videoName: null,
-    videoUrl: `${WATCH_QUERY_PREFIX}${videoId}`,
-    languageTag: ytdlpCaption.languageTag,
+    videoName: vttSource.videoName,
+    videoUrl: vttSource.videoUrl,
+    languageTag,
     artifacts: [
       {
         videoId,
-        languageTag: ytdlpCaption.languageTag,
+        languageTag,
         sourceFormat: 'vtt',
         outputFormat: transformedSubtitle.outputFormat,
         outputText: outputContent,
         outputPath: outputFile,
       },
     ],
-    localAgentTranscript: plainTranscript,
+    localAgentTranscript: plainOutput.outputContent.trim(),
   };
+};
+
+const buildBundleFromYtdlp = async (
+  videoId: string,
+  canonicalWatchUrl: string,
+  options: CliOptions,
+): Promise<TranscriptBundle> => {
+  // Fallback extractor: yt-dlp subs only → convert to requested export format.
+  const languageHint = options.languageTokens[0] || 'en';
+  const ytdlpCaption = extractCaptionsWithYtdlp(canonicalWatchUrl, languageHint);
+  if (!ytdlpCaption) {
+    throw new Error(`${LOG_NO_TRACK} ${videoId} (yt-dlp fallback failed)`);
+  }
+  return buildBundleFromVtt(
+    {
+      videoId,
+      videoName: null,
+      videoUrl: `${WATCH_QUERY_PREFIX}${videoId}`,
+      languageTag: ytdlpCaption.languageTag,
+      vttBody: ytdlpCaption.captionBody,
+    },
+    options,
+  );
 };
 
 const buildTranscriptBundleFromVideo = async (
@@ -795,10 +823,51 @@ const runForChannelUrl = async (channelUrl: string, options: CliOptions): Promis
   await processVideoIdList(filteredChannelIds, options, bulkOutDirectory);
 };
 
+const runForInstagramUrl = async (sourceUrl: string, options: CliOptions): Promise<void> => {
+  // Check local tools before any network or model download work.
+  requireTranscribeTools();
+  const instagramReel = await fetchInstagramReel(sourceUrl);
+  const { shortcode } = instagramReel;
+  logInfo(`${LOG_INSTAGRAM_REEL} ${shortcode}: ${instagramReel.title}`);
+  const modelFile = await ensureWhisperModel(options.whisperModel);
+
+  const videoFile = path.join(options.outDirectory, `${shortcode}${MEDIA_EXTENSION_MP4}`);
+  const audioFile = path.join(options.outDirectory, `${shortcode}${MEDIA_EXTENSION_MP3}`);
+  await downloadInstagramVideo(instagramReel, videoFile);
+  extractMp3Audio(videoFile, audioFile);
+
+  logInfo(`${LOG_INSTAGRAM_TRANSCRIBING} ${options.whisperModel}`);
+  const speechTranscript = await transcribeAudioFile(audioFile, modelFile);
+
+  const keepsMp3 = options.mediaFormat === 'mp3';
+  const mediaFile = keepsMp3 ? audioFile : videoFile;
+  const unusedMediaFile = keepsMp3 ? videoFile : audioFile;
+  await rm(unusedMediaFile, { force: true });
+  logInfo(`${LOG_MEDIA_SAVED_TEMPLATE} ${mediaFile}`);
+
+  const bundle = await buildBundleFromVtt(
+    {
+      videoId: shortcode,
+      videoName: instagramReel.title,
+      videoUrl: instagramReel.pageUrl,
+      languageTag: speechTranscript.languageTag,
+      vttBody: speechTranscript.vttBody,
+    },
+    options,
+  );
+  await runAndPersistAgent(options, bundle);
+};
+
 const run = async (): Promise<void> => {
   const cliValues = await parseCliArguments(process.argv.slice(2));
   const sourceUrl = cliValues.sourceUrl;
   const options = cliValues.options;
+
+  if (isInstagramUrl(sourceUrl)) {
+    await runForInstagramUrl(sourceUrl, options);
+    return;
+  }
+
   await configureSessionCookies(options.cookiesFilePath);
 
   // Channel URLs first (handle / channel id), then playlists, then single video.

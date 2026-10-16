@@ -1,4 +1,4 @@
-# yt-captions-mini-ai code style
+# mini-social-media-ai-scraper code style
 
 Keep this project intentionally small and boring.
 
@@ -18,7 +18,7 @@ Keep this project intentionally small and boring.
 Use arrow functions for all function declarations.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -31,7 +31,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Prefer explicit, domain-specific names over generic placeholders.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -44,7 +44,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Avoid: `result`, `response`, `json`, `data`, `payload`, `row`, `text`, `value`, `item`, `output`, `input`, `tmp`.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -57,7 +57,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Prefer: `videoInfo`, `playerPayload`, `captionTracks`, `subtitleSource`, `playlistEntry`, `subtitlePayload`, `optionRawToken`, `cueText`, etc.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -70,7 +70,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Do **not** keep backward-compat aliases or re-export shims for renames.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -83,7 +83,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Declare module-level hardcoded values in `src/constants.ts` only — one nested `CONSTANTS` object keyed by module (`shared`, `main`, `agent`, …).
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -96,7 +96,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Keep one responsibility per file.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -109,7 +109,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Keep parsing and transport concerns separate from selection/orchestration logic.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -122,7 +122,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Use immutable values when possible (`const` everywhere).
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -135,7 +135,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Keep logs one-line and consistent with a tag.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -148,7 +148,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -161,7 +161,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -174,7 +174,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -187,7 +187,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Prefer small utility functions over inline one-liners.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -200,7 +200,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Every declared type/interface and schema field should have a one-line comment describing intent.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -213,7 +213,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -226,7 +226,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -239,7 +239,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -252,7 +252,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -265,7 +265,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -278,7 +278,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -291,7 +291,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -304,7 +304,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -317,7 +317,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -330,7 +330,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -343,7 +343,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -356,7 +356,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -369,7 +369,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -382,7 +382,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -395,7 +395,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -408,7 +408,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -421,7 +421,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -434,7 +434,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -447,7 +447,7 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -460,20 +460,85 @@ Why: Keeps the local idiom consistent and reviewable.
 Follow this project rule as specified.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
 
 Why: Keeps the local idiom consistent and reviewable.
 
-### Agent skills land under scraped-yt/agents/<agent>/<videoId>/
-[rule:agent.skills-land-under-scraped-yt] · verify: judgment
+### src/media-download.ts — parallel ranged-chunk media download
+[rule:src.media-download-ts-parallel-ranged-chunk] · verify: judgment
 
-Agent skills land under `scraped-yt/agents/<agent>/<videoId>/<skill>/SKILL.md`.
+One job: fetch a media URL into a file with bounded parallel ranges, retries, and progress logs. Callers pass headers and the known size (or null to probe).
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
+
+// ✗ rejected shape
+```
+
+Why: Keeps the local idiom consistent and reviewable.
+
+### src/ffmpeg.ts — ffmpeg runner and mp3 extraction
+[rule:src.ffmpeg-ts-runner-and-mp3] · verify: judgment
+
+`runFfmpeg` throws on any failure; callers decide whether that is fatal.
+
+```ts
+// ✓ mini-social-media-ai-scraper idiom
+
+// ✗ rejected shape
+```
+
+Why: Keeps the local idiom consistent and reviewable.
+
+### src/instagram.ts — Instagram reel page parse and download
+[rule:src.instagram-ts-reel-page-parse] · verify: judgment
+
+Public post page only: decode the embedded media JSON with Effect Schema, fail fast when it is gated or has no video.
+
+```ts
+// ✓ mini-social-media-ai-scraper idiom
+
+// ✗ rejected shape
+```
+
+Why: Keeps the local idiom consistent and reviewable.
+
+### src/whisper-model.ts — whisper.cpp model cache
+[rule:src.whisper-model-ts-model-cache] · verify: judgment
+
+Download a model once into the cache root; write to a partial file and rename so a broken download never looks cached.
+
+```ts
+// ✓ mini-social-media-ai-scraper idiom
+
+// ✗ rejected shape
+```
+
+Why: Keeps the local idiom consistent and reviewable.
+
+### src/transcribe.ts — local speech-to-text via whisper-cli
+[rule:src.transcribe-ts-local-speech-to-text] · verify: judgment
+
+Check `whisper-cli` and `ffmpeg` up front with an install hint; run in a temp work folder that is always removed.
+
+```ts
+// ✓ mini-social-media-ai-scraper idiom
+
+// ✗ rejected shape
+```
+
+Why: Keeps the local idiom consistent and reviewable.
+
+### Agent skills land under <output folder>/agents/<agent>/<videoId>/
+[rule:agent.skills-land-under-scraped-yt] · verify: judgment
+
+Agent skills land under `scraped-yt/agents/<agent>/<videoId>/<skill>/SKILL.md` (YouTube) or `scraped-instagram/agents/<agent>/<shortcode>/<skill>/SKILL.md` (Instagram).
+
+```ts
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -486,7 +551,7 @@ Why: Keeps the local idiom consistent and reviewable.
 No heavy abstractions.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -499,7 +564,7 @@ Why: Keeps the local idiom consistent and reviewable.
 No fallback behavior that hides failure causes.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
@@ -509,10 +574,10 @@ Why: Keeps the local idiom consistent and reviewable.
 ### Fail fast with clear error text
 [rule:fail.fast-with-clear-error-text] · verify: judgment
 
-Fail fast with clear error text when expected YouTube markers/fields are missing.
+Fail fast with clear error text when expected YouTube or Instagram markers/fields are missing.
 
 ```ts
-// ✓ yt-captions-mini-ai idiom
+// ✓ mini-social-media-ai-scraper idiom
 
 // ✗ rejected shape
 ```
