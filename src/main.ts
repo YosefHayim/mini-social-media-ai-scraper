@@ -70,6 +70,7 @@ const {
   CACHE_KEEP_SOURCE_KEY,
   CACHE_AUTO_CAPTIONS_KEY,
   CACHE_MANUAL_CAPTIONS_KEY,
+  CACHE_LANGUAGE_SEPARATOR,
   CACHE_KEY_SEPARATOR,
   LOG_INNERTUBE_FIRST_PREFIX,
   LOG_HTML_FALLBACK_PREFIX,
@@ -457,14 +458,14 @@ const buildTranscriptBundleFromVideo = async (
   const canonicalWatchUrl = getWatchUrl(sourceUrl);
   const exportFormatKey = options.exportFormat || CACHE_KEEP_SOURCE_KEY;
   const captionKindKey = options.includeAutoCaptions ? CACHE_AUTO_CAPTIONS_KEY : CACHE_MANUAL_CAPTIONS_KEY;
-  const cacheOutputKey = [...options.formats, exportFormatKey, captionKindKey].join(CACHE_KEY_SEPARATOR);
-  const cacheLanguageHint = options.languageTokens[0] || 'en';
+  const requestedLanguagesKey = options.languageTokens.join(CACHE_LANGUAGE_SEPARATOR);
+  const cacheKey = [requestedLanguagesKey, ...options.formats, exportFormatKey, captionKindKey].join(CACHE_KEY_SEPARATOR);
 
   // Disk cache hit: skip network when allowed.
   if (options.useCache && !options.forceRefresh) {
-    const cacheEntry = await readTranscriptCache(videoId, cacheLanguageHint, cacheOutputKey);
+    const cacheEntry = await readTranscriptCache(videoId, cacheKey);
     if (cacheEntry) {
-      logInfo(`[${videoId}] cache hit (${cacheEntry.languageTag}/${cacheOutputKey})`);
+      logInfo(`[${videoId}] cache hit (${cacheEntry.languageTag}/${cacheKey})`);
       // Sequential so stdout order and same-path overwrites match a fresh run.
       const replayedArtifacts: TranscriptArtifact[] = [];
       for (const cachedArtifact of cacheEntry.artifacts) {
@@ -609,7 +610,7 @@ const buildTranscriptBundleFromVideo = async (
     await writeTranscriptCache({
       videoId,
       languageTag: transcriptBundle.languageTag,
-      outputKey: cacheOutputKey,
+      cacheKey,
       artifacts: transcriptArtifacts.map((transcriptArtifact) => ({ ...transcriptArtifact, outputPath: null })),
       transcriptBody: localAgentTranscript,
       videoName,

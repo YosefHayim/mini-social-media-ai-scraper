@@ -30,8 +30,8 @@ const transcriptCacheEntrySchema = Schema.Struct({
   videoId: Schema.String.pipe(Schema.pattern(VIDEO_ID_PATTERN)),
   // Caption language tag.
   languageTag: Schema.String.pipe(Schema.pattern(LANGUAGE_TAG_PATTERN)),
-  // Output selection key: caption formats, export format, caption kind.
-  outputKey: Schema.String,
+  // Lookup key: requested languages, caption formats, export format, caption kind.
+  cacheKey: Schema.String,
   // Output files as the fresh run wrote them, replayed on a hit.
   artifacts: Schema.Array(cachedArtifactSchema).pipe(Schema.minItems(1)),
   // Plain transcript body for the local agent.
@@ -56,18 +56,16 @@ export const resolveCacheRoot = (): string => {
   return path.join(homedir(), '.cache', 'mini-social-media-ai-scraper');
 };
 
-const renderCacheFilePath = (videoId: string, languageTag: string, outputKey: string): string => {
-  const safeLang = languageTag.replace(/[^A-Za-z0-9._-]+/g, '_') || 'und';
-  const safeOutputKey = outputKey.replace(/[^A-Za-z0-9._-]+/g, '_');
-  return path.join(resolveCacheRoot(), 'transcripts', `${videoId}.${safeLang}.${safeOutputKey}.json`);
+const renderCacheFilePath = (videoId: string, cacheKey: string): string => {
+  const safeCacheKey = cacheKey.replace(/[^A-Za-z0-9._-]+/g, '_');
+  return path.join(resolveCacheRoot(), 'transcripts', `${videoId}.${safeCacheKey}.json`);
 };
 
 export const readTranscriptCache = async (
   videoId: string,
-  languageTag: string,
-  outputKey: string,
+  cacheKey: string,
 ): Promise<TranscriptCacheEntry | null> => {
-  const cacheFilePath = renderCacheFilePath(videoId, languageTag, outputKey);
+  const cacheFilePath = renderCacheFilePath(videoId, cacheKey);
   try {
     const rawBody = await readFile(cacheFilePath, FILE_ENCODING);
     const decodedEntry = decodeCacheEntry(rawBody);
@@ -82,11 +80,7 @@ export const readTranscriptCache = async (
 };
 
 export const writeTranscriptCache = async (cacheEntry: TranscriptCacheEntry): Promise<void> => {
-  const cacheFilePath = renderCacheFilePath(
-    cacheEntry.videoId,
-    cacheEntry.languageTag,
-    cacheEntry.outputKey,
-  );
+  const cacheFilePath = renderCacheFilePath(cacheEntry.videoId, cacheEntry.cacheKey);
   await mkdir(path.dirname(cacheFilePath), { recursive: true });
   await writeFile(
     cacheFilePath,
