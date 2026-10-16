@@ -1,6 +1,6 @@
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
-import { Readable, type Writable } from 'node:stream';
+import { Readable, Transform, type Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream } from 'node:stream/web';
 import path from 'node:path';
@@ -14,6 +14,7 @@ const {
   PROGRESS_LOG_STEP_PERCENT,
   RANGE_HEADER_NAME,
   PROBE_BYTE_RANGE,
+  HTTP_STATUS_PARTIAL_CONTENT,
   MEDIA_PARALLEL_CHUNKS,
   CHUNK_RETRY_ATTEMPTS,
   CHUNK_RETRY_DELAY_MS,
@@ -86,11 +87,20 @@ const fetchByteRange = (mediaRequest: MediaRequest, byteRange: string): Promise<
     },
   });
 
+const requirePartialContent = async (rangeReply: Response, byteRange: string): Promise<void> => {
+  if (rangeReply.status === HTTP_STATUS_PARTIAL_CONTENT) {
+    return;
+  }
+  await rangeReply.body?.cancel().catch(() => undefined);
+  if (rangeReply.ok) {
+    throw new Error(`Server ignored range ${byteRange} (HTTP ${rangeReply.status})`);
+  }
+  throw new Error(`HTTP ${rangeReply.status} while downloading range ${byteRange}`);
+};
+
 const probeTotalBytes = async (mediaRequest: MediaRequest): Promise<number> => {
   const probeReply = await fetchByteRange(mediaRequest, PROBE_BYTE_RANGE);
-  if (!probeReply.ok) {
-    throw new Error(`HTTP ${probeReply.status} while probing stream size`);
-  }
+  await requirePartialContent(probeReply, PROBE_BYTE_RANGE);
   const contentRangeHeader = probeReply.headers.get('content-range');
   const totalBytes = parseContentRangeTotal(contentRangeHeader);
   await probeReply.body?.cancel().catch(() => undefined);
@@ -113,23 +123,18 @@ const logProgressStep = (downloadProgress: DownloadProgress): void => {
   logInfo(`${LOG_DOWNLOAD_PROGRESS}: ${progressPercent}% (${downloadedLabel}/${totalLabel})`);
 };
 
-const appendBodyToFile = async (
-  mediaStream: ReadableStream,
-  writeStream: Writable,
+const createProgressCounter = (
   downloadProgress: DownloadProgress,
   chunkAttempt: ChunkAttempt,
-): Promise<void> => {
-  const nodeStream = Readable.fromWeb(mediaStream);
-  for await (const mediaChunk of nodeStream) {
-    const chunkBuffer = Buffer.isBuffer(mediaChunk) ? mediaChunk : Buffer.from(mediaChunk as Uint8Array);
-    chunkAttempt.receivedBytes += chunkBuffer.byteLength;
-    downloadProgress.downloadedBytes += chunkBuffer.byteLength;
-    logProgressStep(downloadProgress);
-    if (!writeStream.write(chunkBuffer)) {
-      await new Promise<void>((wakeUp) => writeStream.once('drain', wakeUp));
-    }
-  }
-};
+): Transform =>
+  new Transform({
+    transform: (mediaChunk: Uint8Array, _encoding, passChunk) => {
+      chunkAttempt.receivedBytes += mediaChunk.byteLength;
+      downloadProgress.downloadedBytes += mediaChunk.byteLength;
+      logProgressStep(downloadProgress);
+      passChunk(null, mediaChunk);
+    },
+  });
 
 const closeWriteStream = (writeStream: Writable): Promise<void> => {
   writeStream.end();
@@ -146,22 +151,19 @@ const downloadChunkOnce = async (
   downloadProgress: DownloadProgress,
 ): Promise<void> => {
   const chunkReply = await fetchByteRange(mediaRequest, byteRange);
-  if (!chunkReply.ok) {
-    throw new Error(`HTTP ${chunkReply.status} while downloading range ${byteRange}`);
-  }
+  await requirePartialContent(chunkReply, byteRange);
   if (!chunkReply.body) {
     throw new Error(`Empty body while downloading range ${byteRange}`);
   }
-  const writeStream = createWriteStream(destFile);
-  writeStream.setMaxListeners(0);
   const chunkAttempt: ChunkAttempt = { receivedBytes: 0 };
+  const mediaStream = Readable.fromWeb(chunkReply.body as ReadableStream);
+  const progressCounter = createProgressCounter(downloadProgress, chunkAttempt);
+  const writeStream = createWriteStream(destFile);
   try {
-    await appendBodyToFile(chunkReply.body as ReadableStream, writeStream, downloadProgress, chunkAttempt);
-    await closeWriteStream(writeStream);
+    await pipeline(mediaStream, progressCounter, writeStream);
   } catch (streamError) {
     // A retry rewrites the whole chunk, so its partial bytes leave the shared count.
     downloadProgress.downloadedBytes -= chunkAttempt.receivedBytes;
-    writeStream.destroy();
     throw streamError;
   }
 };
@@ -181,6 +183,22 @@ const downloadChunkToFile = async (
     }
     await sleepBriefly(CHUNK_RETRY_DELAY_MS);
     await downloadChunkToFile(mediaRequest, byteRange, destFile, downloadProgress, attemptsLeft - 1);
+  }
+};
+
+const joinPartFiles = async (partFiles: string[], destFile: string): Promise<void> => {
+  const writeStream = createWriteStream(destFile);
+  writeStream.setMaxListeners(0);
+  try {
+    for (const partFile of partFiles) {
+      const partStream = createReadStream(partFile);
+      await pipeline(partStream, writeStream, { end: false });
+    }
+    await closeWriteStream(writeStream);
+  } catch (joinError) {
+    writeStream.destroy();
+    await rm(destFile, { force: true });
+    throw joinError;
   }
 };
 
@@ -223,14 +241,7 @@ export const downloadMediaToFile = async (
         downloadChunkToFile(mediaRequest, byteRange, partFiles[chunkIndex], downloadProgress),
       ),
     );
-
-    const writeStream = createWriteStream(destFile);
-    writeStream.setMaxListeners(0);
-    for (const partFile of partFiles) {
-      const partStream = createReadStream(partFile);
-      await pipeline(partStream, writeStream, { end: false });
-    }
-    await closeWriteStream(writeStream);
+    await joinPartFiles(partFiles, destFile);
   } finally {
     await Promise.all(partFiles.map((partFile) => rm(partFile, { force: true })));
   }

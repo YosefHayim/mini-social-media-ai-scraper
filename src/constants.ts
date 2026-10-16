@@ -27,7 +27,7 @@ const SHARED = {
   YOUTU_BE_HOST_MARK: 'youtu.be',
   GOOGLE_HOST_MARK: 'google.com',
   YOUTUBE_COOKIE_DOMAIN: '.youtube.com',
-  INSTAGRAM_HOST_MARK: 'instagram.com',
+  INSTAGRAM_HOSTNAME: 'instagram.com',
   WATCH_QUERY_PREFIX: 'https://www.youtube.com/watch?v=',
   PLAYLIST_PATH_PREFIX: 'https://www.youtube.com/playlist?list=',
 
@@ -303,13 +303,14 @@ export const CONSTANTS = {
     LOG_INSTAGRAM_REEL: 'Instagram reel',
     LOG_INSTAGRAM_TRANSCRIBING: 'transcribing with whisper.cpp model',
     LOG_MEDIA_SAVED_TEMPLATE: 'Saved media:',
-    VTT_DEFAULT_EXPORT_FORMAT: 'txt' as const,
+    INSTAGRAM_DEFAULT_EXPORT_FORMAT: 'txt' as const,
   },
 
   mediaDownload: {
     PROGRESS_LOG_STEP_PERCENT: 10,
     RANGE_HEADER_NAME: 'Range',
     PROBE_BYTE_RANGE: 'bytes=0-0',
+    HTTP_STATUS_PARTIAL_CONTENT: 206,
     // Parallel bounded requests dodge the per-connection CDN throttle (~1 Mbps).
     MEDIA_PARALLEL_CHUNKS: 6,
     CHUNK_RETRY_ATTEMPTS: 3,
@@ -330,7 +331,7 @@ export const CONSTANTS = {
   instagram: {
     // reel, reels, p, and tv links, with an optional /<username>/ segment before them.
     SHORTCODE_PATTERN:
-      /^https?:\/\/(?:www\.)?instagram\.com\/(?:[A-Za-z0-9._]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]+)/i,
+      /^https?:\/\/(?:[a-z0-9-]+\.)?instagram\.com\/(?:[A-Za-z0-9._]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]+)/i,
     SHORTCODE_CAPTURE_GROUP: 1,
     // The /p/<shortcode>/ page embeds media for reels and video posts alike.
     PAGE_URL_PREFIX: 'https://www.instagram.com/p/',

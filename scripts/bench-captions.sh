@@ -3,13 +3,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MAIN_ROOT="$(cd "$ROOT/../mini-social-media-ai-scraper" && pwd)"
+# Optional second checkout (for example main) to compare against; skipped when absent.
+MAIN_ROOT="${MAIN_ROOT:-$ROOT/../mini-social-media-ai-scraper}"
 VIDEO_ID="${VIDEO_ID:-iQyg-KypKAA}"
 VIDEO_URL="https://www.youtube.com/watch?v=${VIDEO_ID}"
 # Known multi-video playlist; capped with max-videos for fair bulk timing.
 PLAYLIST_URL="${PLAYLIST_URL:-https://www.youtube.com/playlist?list=PLBCF2DAC6FFB574DE}"
 BULK_N="${BULK_N:-8}"
-OUT_BASE="${OUT_BASE:-/tmp/yt-cap-bench-$$}"
+OUT_BASE="${OUT_BASE:-/tmp/mini-social-media-ai-scraper-bench-$$}"
 mkdir -p "$OUT_BASE"
 
 time_cmd() {

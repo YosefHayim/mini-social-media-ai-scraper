@@ -42,7 +42,7 @@ import { downloadVideoWithPlayerApi } from './video.js';
 import { downloadInstagramVideo, fetchInstagramReel, isInstagramUrl } from './instagram.js';
 import { extractMp3Audio } from './ffmpeg.js';
 import { ensureWhisperModel } from './whisper-model.js';
-import { requireTranscribeTools, transcribeAudioFile } from './transcribe.js';
+import { requireTranscribeTools, transcribeAudioFile, type SpeechTranscript } from './transcribe.js';
 
 import { CONSTANTS } from './constants.js';
 
@@ -106,7 +106,7 @@ const {
   LOG_INSTAGRAM_REEL,
   LOG_INSTAGRAM_TRANSCRIBING,
   LOG_MEDIA_SAVED_TEMPLATE,
-  VTT_DEFAULT_EXPORT_FORMAT,
+  INSTAGRAM_DEFAULT_EXPORT_FORMAT,
 } = CONSTANTS.main;
 const { MEDIA_EXTENSION_MP4, MEDIA_EXTENSION_MP3 } = CONSTANTS.video;
 
@@ -336,9 +336,10 @@ const loadCaptionTracksForVideo = async (
 
 const buildBundleFromVtt = async (
   vttSource: VttTranscriptSource,
+  exportFormat: OutputFormat | null,
   options: CliOptions,
 ): Promise<TranscriptBundle> => {
-  // Convert one WebVTT transcript to the requested export format (txt by default).
+  // Convert one WebVTT transcript to the export format; null keeps the VTT source.
   const { videoId, languageTag } = vttSource;
   const subtitleDownload: CaptionDownload = {
     videoId,
@@ -346,7 +347,6 @@ const buildBundleFromVtt = async (
     fileFormat: 'vtt',
     fileContent: vttSource.vttBody,
   };
-  const exportFormat = options.exportFormat || VTT_DEFAULT_EXPORT_FORMAT;
   const transformedSubtitle = convertCaptionSourceToOutput(subtitleDownload, exportFormat);
   const outputContent = transformedSubtitle.outputContent.trim();
   if (!outputContent.length) {
@@ -406,6 +406,7 @@ const buildBundleFromYtdlp = async (
       languageTag: ytdlpCaption.languageTag,
       vttBody: ytdlpCaption.captionBody,
     },
+    options.exportFormat,
     options,
   );
 };
@@ -823,6 +824,17 @@ const runForChannelUrl = async (channelUrl: string, options: CliOptions): Promis
   await processVideoIdList(filteredChannelIds, options, bulkOutDirectory);
 };
 
+const extractAndTranscribe = async (
+  videoFile: string,
+  audioFile: string,
+  modelFile: string,
+  whisperModel: string,
+): Promise<SpeechTranscript> => {
+  await extractMp3Audio(videoFile, audioFile);
+  logInfo(`${LOG_INSTAGRAM_TRANSCRIBING} ${whisperModel}`);
+  return transcribeAudioFile(audioFile, modelFile);
+};
+
 const runForInstagramUrl = async (sourceUrl: string, options: CliOptions): Promise<void> => {
   // Check local tools before any network or model download work.
   requireTranscribeTools();
@@ -833,16 +845,14 @@ const runForInstagramUrl = async (sourceUrl: string, options: CliOptions): Promi
 
   const videoFile = path.join(options.outDirectory, `${shortcode}${MEDIA_EXTENSION_MP4}`);
   const audioFile = path.join(options.outDirectory, `${shortcode}${MEDIA_EXTENSION_MP3}`);
-  await downloadInstagramVideo(instagramReel, videoFile);
-  extractMp3Audio(videoFile, audioFile);
-
-  logInfo(`${LOG_INSTAGRAM_TRANSCRIBING} ${options.whisperModel}`);
-  const speechTranscript = await transcribeAudioFile(audioFile, modelFile);
-
   const keepsMp3 = options.mediaFormat === 'mp3';
   const mediaFile = keepsMp3 ? audioFile : videoFile;
   const unusedMediaFile = keepsMp3 ? videoFile : audioFile;
-  await rm(unusedMediaFile, { force: true });
+  await downloadInstagramVideo(instagramReel, videoFile);
+
+  // Only the requested format stays on disk, even when transcription fails.
+  const transcriptRun = extractAndTranscribe(videoFile, audioFile, modelFile, options.whisperModel);
+  const speechTranscript = await transcriptRun.finally(() => rm(unusedMediaFile, { force: true }));
   logInfo(`${LOG_MEDIA_SAVED_TEMPLATE} ${mediaFile}`);
 
   const bundle = await buildBundleFromVtt(
@@ -853,6 +863,7 @@ const runForInstagramUrl = async (sourceUrl: string, options: CliOptions): Promi
       languageTag: speechTranscript.languageTag,
       vttBody: speechTranscript.vttBody,
     },
+    options.exportFormat || INSTAGRAM_DEFAULT_EXPORT_FORMAT,
     options,
   );
   await runAndPersistAgent(options, bundle);

@@ -5,7 +5,7 @@ import { downloadMediaToFile } from './media-download.js';
 
 import { CONSTANTS } from './constants.js';
 
-const { INSTAGRAM_HOST_MARK, BROWSER_USER_AGENT, NEWLINE } = CONSTANTS.shared;
+const { INSTAGRAM_HOSTNAME, BROWSER_USER_AGENT, NEWLINE } = CONSTANTS.shared;
 const { USER_AGENT_HEADER, REFERER_HEADER } = CONSTANTS.http;
 const {
   SHORTCODE_PATTERN,
@@ -73,8 +73,14 @@ const polarisMediaSchema = Schema.Struct({
 
 const decodePolarisMedia = Schema.decodeUnknown(polarisMediaSchema);
 
-export const isInstagramUrl = (sourceUrl: string): boolean =>
-  sourceUrl.toLowerCase().includes(INSTAGRAM_HOST_MARK);
+export const isInstagramUrl = (sourceUrl: string): boolean => {
+  const trimmedUrl = sourceUrl.trim();
+  if (!URL.canParse(trimmedUrl)) {
+    return false;
+  }
+  const { hostname } = new URL(trimmedUrl);
+  return hostname === INSTAGRAM_HOSTNAME || hostname.endsWith(`.${INSTAGRAM_HOSTNAME}`);
+};
 
 const findNestedValue = (jsonNode: unknown, targetKey: string): unknown => {
   if (Array.isArray(jsonNode)) {

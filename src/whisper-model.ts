@@ -39,9 +39,9 @@ export const ensureWhisperModel = async (modelName: string): Promise<string> => 
   }
 
   // Download beside the final name and rename at the end, so a broken
-  // download never looks like a cached model.
+  // download never looks like a cached model. The pid keeps parallel runs apart.
   logInfo(`${LOG_MODEL_DOWNLOAD} ${modelFileName}`);
-  const partialFile = `${modelFile}${PARTIAL_DOWNLOAD_EXTENSION}`;
+  const partialFile = `${modelFile}.${process.pid}${PARTIAL_DOWNLOAD_EXTENSION}`;
   await downloadMediaToFile(
     {
       downloadUrl: `${MODEL_DOWNLOAD_URL_PREFIX}${modelFileName}`,

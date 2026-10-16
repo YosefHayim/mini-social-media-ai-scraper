@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { rm } from 'node:fs/promises';
 
 import { CONSTANTS } from './constants.js';
 
@@ -27,6 +28,11 @@ export const runFfmpeg = (ffmpegArguments: string[]): void => {
   }
 };
 
-export const extractMp3Audio = (mediaFile: string, mp3File: string): void => {
-  runFfmpeg(['-i', mediaFile, ...MP3_ENCODE_ARGUMENTS, mp3File]);
+export const extractMp3Audio = async (mediaFile: string, mp3File: string): Promise<void> => {
+  try {
+    runFfmpeg(['-i', mediaFile, ...MP3_ENCODE_ARGUMENTS, mp3File]);
+  } catch (ffmpegError) {
+    await rm(mp3File, { force: true });
+    throw ffmpegError;
+  }
 };

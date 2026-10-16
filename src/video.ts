@@ -106,7 +106,7 @@ const parseContentLength = (contentLengthValue: number | string | undefined): nu
     return null;
   }
   const parsedLength = Number(contentLengthValue);
-  return Number.isFinite(parsedLength) && parsedLength >= 0 ? parsedLength : null;
+  return Number.isFinite(parsedLength) && parsedLength > 0 ? parsedLength : null;
 };
 
 const containerFromMimeType = (mimeType: string | null): string | null => {
